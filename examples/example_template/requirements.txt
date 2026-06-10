@@ -1,0 +1,4 @@
+# Requirements for this example
+# Normally, you would install the core project dependencies.
+# Example: pip install -e ../../
+# Add any example-specific dependencies below.

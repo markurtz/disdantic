@@ -1,0 +1,81 @@
+---
+# =============================================================================
+# dependabot.yml — Automated Dependency Management
+#
+# GitHub Dependabot natively creates PRs for outdated dependencies.
+# All updates are grouped to minimize PR noise (one PR per ecosystem/week).
+#
+# Supported ecosystems:
+#   • github-actions — workflow action version pins
+#   • pip            — Python packages
+#   • docker         — Base image tags
+#
+# After PRs are opened, weekly.yml surfaces them via Slack for human review.
+# =============================================================================
+version: 2
+updates:
+  # ── GitHub Actions ──────────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    # Group all action updates into a single PR to reduce noise
+    groups:
+      github-actions-updates:
+        patterns:
+          - "*"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(actions)"
+    reviewers:
+      - "{{maintainer_username}}"
+    assignees:
+      - "{{maintainer_username}}"
+    open-pull-requests-limit: 5
+
+  # ── Python (pip) ────────────────────────────────────────────────────────────
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore(deps)"
+    reviewers:
+      - "{{maintainer_username}}"
+    assignees:
+      - "{{maintainer_username}}"
+    open-pull-requests-limit: 5
+
+  # ── Docker ───────────────────────────────────────────────────────────────────
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(docker)"
+    reviewers:
+      - "{{maintainer_username}}"
+    assignees:
+      - "{{maintainer_username}}"
+    open-pull-requests-limit: 3

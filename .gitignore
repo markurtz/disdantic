@@ -1,0 +1,393 @@
+# ==============================================================================
+# Operating Systems
+# ==============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.Trash-*
+*~
+
+# ==============================================================================
+# IDEs and Editors
+# ==============================================================================
+
+# JetBrains (IntelliJ, PyCharm, WebStorm, CLion, etc.)
+.idea/
+.idea_modules/
+*.iml
+*.iws
+*.ipr
+out/
+cmake-build-*/
+.run/
+
+# VS Code / Cursor
+.vscode/*
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json
+*.code-workspace
+.history/
+.cursor/
+
+# Eclipse
+.project
+.classpath
+.cproject
+.settings/
+.metadata/
+bin/
+
+# Vim / Emacs / Sublime Text / Fleet / Zed
+*~
+*.swp
+*.swo
+.sconsign.dblite
+*.sublime-workspace
+*.sublime-project
+\#*\#
+.\#*
+.fleet/
+.zed/
+
+# Xcode
+build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+*.xccheckout
+*.moved-aside
+DerivedData/
+*.hmap
+*.ipa
+*.xcuserstate
+
+# Android Studio
+.navigation/
+captures/
+*.apk
+*.ap_
+*.dex
+
+# ==============================================================================
+# Environments and Secrets
+# ==============================================================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.development
+.env.test
+.env.production
+.env.staging
+.env.secret
+.env.override
+.env.backup
+.env.*.local
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+
+# Direnv / Devbox / Nix
+.direnv/
+.devbox/
+result
+
+# ==============================================================================
+# Logs, Caches, and Coverage
+# ==============================================================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.cache/
+.eslintcache
+.stylelintcache
+.npm/
+coverage/
+.nyc_output/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.cover
+*.py,cover
+cover/
+nosetests.xml
+
+# ==============================================================================
+# Programming Languages
+# ==============================================================================
+
+# Python
+src/template_python/version.py
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.tox/
+.nox/
+.hatch/
+.hypothesis/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+profile_default/
+ipython_config.py
+*.ipynb_checkpoints/
+pip-log.txt
+pip-delete-this-directory.txt
+pip-wheel-metadata/
+.venv/
+venv/
+env/
+ENV/
+virtualenv/
+.virtualenv/
+env.bak/
+venv.bak/
+# Pipfile.lock # Note: Often committed for reproducible builds
+# poetry.lock # Note: Often committed for reproducible builds
+# pdm.lock
+.pdm.toml
+.pdm-python
+.pdm-build/
+__pypackages__/
+pyrightconfig.json
+cython_debug/
+
+# Python Frameworks & Tools
+docs/_build/
+docs/build/
+.scrapy/
+instance/
+.webassets-cache
+celerybeat-schedule
+celerybeat.pid
+*.manifest
+*.spec
+*.mo
+*.pot
+
+# Node.js / JavaScript / TypeScript
+node_modules/
+jspm_packages/
+.yarn/
+!.yarn/cache
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
+out-tsc/
+.tsbuildinfo
+
+# Java / Kotlin / Maven / Gradle
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+target/
+.mtj.tmp/
+hs_err_pid*
+replay_pid*
+.gradle/
+*.versionsBackup
+
+# C / C++ / C#
+*.o
+*.obj
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+*.exe
+*.dll
+*.dylib
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+Debug/
+Release/
+x64/
+x86/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Rust
+# target/ (Moved to avoid conflict with Java target/ if in same dir, but fine to ignore twice)
+**/*.rs.bk
+# Cargo.lock # Note: Cargo.lock should typically be committed for executables
+
+# Go
+# bin/ (handled globally or below)
+# pkg/ (handled globally or below)
+vendor/
+*.test
+*.prof
+
+# Ruby
+*.gem
+.bundle/
+vendor/bundle
+lib/bundler/man/
+
+# PHP
+.phpunit.result.cache
+
+# Swift / Objective-C
+.build/
+Packages/
+Package.pins
+Package.resolved
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcworkspace/contents.xcworkspacedata
+
+# Dart / Flutter
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+
+# ==============================================================================
+# Frameworks & Web Dev
+# ==============================================================================
+
+# Next.js
+.next/
+
+# Nuxt.js / Vue
+.nuxt/
+.output/
+
+# Gatsby / Jekyll / Hugo / Docusaurus / MkDocs
+_site/
+.docusaurus/
+site/
+
+# ==============================================================================
+# Infrastructure, DevOps & CI/CD
+# ==============================================================================
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Serverless & Cloud
+.serverless/
+.aws-sam/
+cdk.out/
+.pulumi/
+
+# Docker & Vagrant
+.vagrant/
+*.box
+
+# Ansible
+*.retry
+
+# ==============================================================================
+# Miscellaneous
+# ==============================================================================
+# SQLite
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+
+# Build artifacts and archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+*.gz
+*.bz2
+
+# Machine Learning / Data Science
+*.csv
+*.dat
+*.seed

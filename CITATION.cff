@@ -1,0 +1,21 @@
+# This CITATION.cff file was generated from a template.
+# Update the placeholders below with your project's specific details.
+# For more information on the CFF format, see: https://citation-file-format.github.io/
+
+cff-version: 1.2.0
+title: "template-python"
+message: "If you use this software, please cite it as below."
+type: software
+date-released: "{{date_released}}"
+license: Apache-2.0
+
+# You can list individual authors or an organization.
+# This defaults to the organization to match the README's BibTeX.
+authors:
+  - name: "markurtz"
+#  - family-names: "{{author_family_name}}"
+#    given-names: "{{author_given_name}}"
+#    orcid: "https://orcid.org/{{orcid}}"
+
+repository-code: "https://github.com/markurtz/template-python"
+url: "https://markurtz.github.io/template-python"

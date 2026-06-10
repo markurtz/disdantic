@@ -1,0 +1,8 @@
+commit_sha: $Format:%H$
+short_sha: $Format:%h$
+timestamp: $Format:%aI$
+author_name: $Format:%an$
+author_email: $Format:%ae$
+ref_names: $Format:%D$
+commit_message:
+$Format:%B$

@@ -1,0 +1,112 @@
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# _docs.yml
+#
+# Builds static documentation using MkDocs and Mike for versioning, and
+# deploys it to GitHub Pages.
+#
+# Inputs:
+#   build_type (required): "dev-branch", "dev", "nightly", "release", or "post"
+#   alias (required):      The alias to use for the deployment (e.g., "latest", "nightly")
+#
+# Outputs:
+#   deployed_url — The URL/path where the docs were deployed
+#
+# Callers: development.yml, nightly.yml, release.yml
+# ─────────────────────────────────────────────────────────────────────────────
+name: "Docs Builder & Deployer (Reusable)"
+on:
+  workflow_call:
+    inputs:
+      build_type:
+        description: "Deploy target type: dev-branch, dev, nightly, release, or post"
+        required: true
+        type: string
+      alias:
+        description: "The alias to use for the documentation version (e.g., latest, nightly)"
+        required: true
+        type: string
+      include_coverage:
+        description: "Whether to download and include unit test coverage in the docs"
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      deployed_url:
+        description: "Path where the docs were deployed"
+        value: ${{ jobs.build-and-deploy-docs.outputs.deployed_url }}
+permissions:
+  contents: write  # Push to gh-pages branch
+jobs:
+  build-and-deploy-docs:
+    name: "Build & Deploy Docs (${{ inputs.build_type }})"
+    runs-on: ubuntu-latest
+    outputs:
+      deployed_url: ${{ steps.dest.outputs.path }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.x"
+      - name: Configure Git Credentials
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email github-actions[bot]@users.noreply.github.com
+      - name: Install hatch and trigger docs sync
+        run: |
+          pip install uv hatch
+          hatch run docs:mkdocs --version
+      - name: Download unit test coverage
+        if: ${{ inputs.include_coverage }}
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-report-unit-*
+          path: docs/coverage/unit
+          merge-multiple: true
+      - name: Download integration test coverage
+        if: ${{ inputs.include_coverage }}
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-report-integration-*
+          path: docs/coverage/integration
+          merge-multiple: true
+      - name: Download e2e test coverage
+        if: ${{ inputs.include_coverage }}
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-report-e2e-*
+          path: docs/coverage/e2e
+          merge-multiple: true
+      - name: Compute deployment destination path
+        id: dest
+        run: |
+          case "${{ inputs.build_type }}" in
+            dev-branch) echo "path=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT" ;;
+            dev)        echo "path=dev"                        >> "$GITHUB_OUTPUT" ;;
+            nightly)    echo "path=nightly"                    >> "$GITHUB_OUTPUT" ;;
+            release)    echo "path=${{ github.ref_name }}"     >> "$GITHUB_OUTPUT" ;;
+            post)       echo "path=post"                       >> "$GITHUB_OUTPUT" ;;
+            *)          echo "path=${{ inputs.alias }}"        >> "$GITHUB_OUTPUT" ;;
+          esac
+      - name: Build and deploy using Mike
+        run: |-
+          VERSION_PATH="${{ steps.dest.outputs.path }}"
+          ALIAS="${{ inputs.alias }}"
+
+          # Use mike to deploy to gh-pages branch
+          # --push: push to origin
+          # --update-aliases: update the alias pointer
+          if [ "$ALIAS" != "" ] && [ "$ALIAS" != "$VERSION_PATH" ]; then
+            hatch run docs:mike deploy --push --update-aliases $VERSION_PATH $ALIAS
+          else
+            hatch run docs:mike deploy --push $VERSION_PATH
+          fi
+
+          # If release, also set it as default
+          if [ "${{ inputs.build_type }}" == "release" ]; then
+            hatch run docs:mike set-default --push $ALIAS
+          fi

@@ -1,0 +1,629 @@
+# template-python Full Documentation
+
+This file contains the concatenated core documentation for the project to provide comprehensive context to LLMs.
+
+# template-python
+
+> An opinionated, production-ready Apache 2.0 template repository for bootstrapping modern software projects.
+
+`template-python` is designed to eliminate boilerplate and enforce consistency across an organization's repositories.
+For comprehensive context and full documentation, please see [llms-full.txt](llms-full.txt).
+
+## Docs
+- [Home](https://markurtz.github.io/template-python/): Documentation site home page
+- [Getting Started](https://markurtz.github.io/template-python/getting-started/): Installation, quickstart, and workflow guides
+- [Guides](https://markurtz.github.io/template-python/guides/): How-to guides for common tasks
+- [API Reference](https://markurtz.github.io/template-python/reference/): Full API reference documentation
+
+## Repository Files
+- [README.md](https://github.com/markurtz/template-python/blob/main/README.md): Project overview and quick start
+- [AGENTS.md](https://github.com/markurtz/template-python/blob/main/AGENTS.md): AI agent coding instructions
+- [DEVELOPING.md](https://github.com/markurtz/template-python/blob/main/DEVELOPING.md): Developer setup guide
+
+## Optional
+- [Full Documentation](https://markurtz.github.io/template-python/llms-full.txt): The complete concatenated documentation for template-python
+
+
+## File: README.md
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/branding/logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/branding/logo-light.svg">
+    <img alt="template-python Logo" src="docs/assets/branding/logo-light.svg" width="400">
+  </picture>
+</p>
+
+<p align="center">
+  <em>An opinionated, production-ready Apache 2.0 template repository for bootstrapping modern software projects.</em>
+</p>
+
+<p align="center">
+  <!-- Package & Release Status -->
+  <a href="https://github.com/markurtz/template-python/releases">
+    <img src="https://img.shields.io/github/v/release/markurtz/template-python?label=Release" alt="GitHub Release">
+  </a>
+<!--   <a href="https://pypi.org/project/template-python/">
+    <img src="https://img.shields.io/pypi/v/template-python?label=PyPI" alt="PyPI Release">
+  </a> -->
+<!--   <a href="https://pypi.org/project/template-python/">
+    <img src="https://img.shields.io/pypi/pyversions/template-python?label=Python" alt="Supported Python Versions">
+  </a> -->
+  <br/>
+  <!-- CI/CD & Build Status -->
+  <a href="https://github.com/markurtz/template-python/actions/workflows/main.yml">
+    <img src="https://github.com/markurtz/template-python/actions/workflows/main.yml/badge.svg" alt="CI Status">
+  </a>
+  <br/>
+  <!-- Issues & Support -->
+  <a href="https://github.com/markurtz/template-python/issues?q=is%3Aissue+is%3Aclosed">
+    <img src="https://img.shields.io/github/issues-closed/markurtz/template-python?label=Issues%20Closed" alt="Closed Issues">
+  </a>
+  <!-- Uncomment to display open issues:
+  <a href="https://github.com/markurtz/template-python/issues?q=is%3Aissue+is%3Aopen">
+    <img src="https://img.shields.io/github/issues/markurtz/template-python?label=Issues%20Open" alt="Open Issues">
+  </a>
+  -->
+  <a href="https://opensource.org/licenses/Apache-2.0">
+    <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://markurtz.github.io/template-python">Documentation</a> |
+  <a href="https://github.com/markurtz/template-python/milestones">Roadmap</a> |
+  <a href="https://github.com/markurtz/template-python/issues">Issues</a> |
+  <a href="https://github.com/markurtz/template-python/discussions">Discussions</a>
+</p>
+
+______________________________________________________________________
+
+## Overview
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/branding/user-flow-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/branding/user-flow-light.svg">
+    <img alt="User Flow Diagram" src="docs/assets/branding/user-flow-light.svg" width="800">
+  </picture>
+</p>
+
+Welcome to the template-python template repository! This template provides a robust foundation for building high-quality, scalable software projects. It includes standard directories, issue templates, CI/CD workflows, and comprehensive placeholder documentation.
+
+To use this template, run `uv run scripts/bootstrap.py` to automatically configure your project with your organization and repository details, update the placeholder SVG images in `docs/assets/branding/`, and you are ready to start coding.
+
+### Why Use template-python?
+
+- **Consistency:** Enforces a standardized layout and structure across your organization's repositories.
+- **Speed:** Bootstraps your project with pre-configured Actions, badges, and templates so you don't start from scratch.
+- **Best Practices:** Baked-in guides for contributing, security, and developer setup.
+
+### Comparisons
+
+When evaluating template-python against other templates, consider the following differences:
+
+| Feature            | template-python Template            | Standard GitHub Init | Cookiecutter / Copier      |
+| :----------------- | :------------------------------- | :------------------- | :------------------------- |
+| **Setup Speed**    | Very Fast                        | Fast                 | Slower (requires CLI tool) |
+| **Visual Assets**  | Pre-configured Light/Dark assets | None                 | Varies                     |
+| **CI/CD Built-in** | Yes (GitHub Actions)             | No                   | Optional                   |
+| **Complexity**     | Low (Find and Replace)           | None                 | Medium (Jinja templates)   |
+
+## What's New
+
+**Welcome to the template-python Launch!**
+
+This project has just been instantiated from the template repository. Keep an eye on this section for future release highlights, new features, and community announcements!
+
+<!-- Once your project is active, replace the launch message above with links to your latest release notes or top 3 new features here. -->
+
+## Quick Start
+
+```bash
+pip install template-python
+```
+
+For full installation options (from source, Docker, platform-specific notes) and step-by-step onboarding, see the **[Getting Started guide](https://markurtz.github.io/template-python/getting-started/)**.
+
+## Core Concepts
+
+This project is built using modern Python tooling, enforcing strict code quality standards with Ruff and Mypy, and providing a robust Pydantic-driven settings architecture for configuration resolution.
+
+### Component Architecture
+
+The repository is structured to separate documentation, application logic, and testing cleanly:
+
+- `src/template_python/`: The primary application source code.
+- `tests/`: Comprehensive test suite ensuring reliability, organized into `unit/`, `integration/`, and `e2e/`.
+- `docs/`: Source code for the MkDocs Material documentation site, including step-by-step guides, references, and getting started tutorials.
+- `examples/`: Runnable reference projects demonstrating real-world configurations.
+- `.github/workflows/`: Advanced CI/CD pipelines governing the project lifecycle, built around reusable workflow templates.
+
+## Advanced Usage
+
+Please check the [`examples/`](examples/) directory for advanced examples and configurations.
+
+## General
+
+### Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for more details. For development setup, check out [DEVELOPING.md](DEVELOPING.md).
+Please ensure you follow our [Code of Conduct](CODE_OF_CONDUCT.md) in all interactions.
+
+### Support and Security
+
+- For help and general questions, see [SUPPORT.md](SUPPORT.md).
+- To report a security vulnerability, please refer to our [Security Policy](SECURITY.md).
+
+### AI & LLM Tooling
+
+This repository includes first-class support for agentic and LLM-assisted development workflows:
+
+- **[AGENTS.md](AGENTS.md):** Repository-specific instructions for AI coding agents (Codex, Copilot Workspace, Gemini, Claude, Cursor, and similar tools). Contains the authoritative guide for project structure, executable commands, code style, and critical constraints.
+- **[llms.txt](llms.txt):** A machine-readable index of the project's documentation, following the [llms.txt specification](https://llmstxt.org/). Served at `/llms.txt` on the documentation site to help LLMs quickly locate and consume relevant content.
+
+### License
+
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
+
+### Citations
+
+If you use this template or the resulting software in your research, please cite it using the following BibTeX entry:
+
+```bibtex
+@software{template-python,
+  author = {markurtz},
+  title = {template-python},
+  year = {{year}},
+  url = {https://github.com/markurtz/template-python}
+}
+```
+
+
+## File: AGENTS.md
+
+# AGENTS.md — AI Agent & Coding Assistant Guide
+
+> **This file provides repository-specific instructions to AI coding agents** (e.g., OpenAI Codex, GitHub Copilot, Gemini, Claude, Cursor).
+> Human contributors should refer to [DEVELOPING.md](DEVELOPING.md).
+
+## Project Context
+
+**`template-python`** is a production-ready Apache 2.0 template repository for bootstrapping modern software projects.
+**Primary language:** `Python 3.10+`\
+**Package manager:** `Hatch`
+
+## Critical Constraints
+
+> [!CAUTION]
+>
+> 1. **Never commit secrets.** Do not add API keys, tokens, or credentials anywhere.
+> 1. **Do not modify `LICENSE` or `NOTICE`.** These are legally binding.
+> 1. **Do not modify workflow trigger conditions** without human review.
+> 1. **All new source files must include the Apache 2.0 copyright header.**
+> 1. **Use `{{double_braces}}` for template placeholders.** Never hard-code them.
+
+## Repository Layout
+
+- `.github/workflows/`: CI/CD pipelines. Files prefixed with `_` are reusable templates.
+- `docs/`: MkDocs Material source.
+- `src/`: Primary application source code.
+- `tests/`: Organized into `unit/`, `integration/`, and `e2e/`.
+
+## Executable Commands
+
+- **Linting:** `hatch run lint:check` (Ruff & mdformat) and `hatch run types:check` (Mypy)
+- **Pre-commit:** `pre-commit run --all-files` (Runs formatting and quality checks)
+- **Testing:** `hatch run test:all` (Pytest) and `hatch run test:all-cov` (Coverage)
+- **Docs:** `hatch run docs:serve` / `hatch run docs:build`
+- **Build:** `hatch build`
+
+## Code Style & Patterns
+
+- **No magic strings or numbers** — define constants.
+- **Prefer explicit over implicit.**
+- **One responsibility per module.**
+- Every public function, class, and module must have a docstring.
+- Follow [Conventional Commits](https://www.conventionalcommits.org/).
+
+## GitHub Actions Workflows
+
+- **Reusable Templates (`_*.yml`):** Never trigger directly. Ensure changes are backward-compatible.
+- **Lifecycle:**
+  - `development.yml`: PR open/sync (unit + smoke)
+  - `main.yml`: Push to `main` (unit + integration + sanity)
+  - `nightly.yml`, `weekly.yml`, `release.yml`: Standard scheduled/release flows.
+
+## Documentation
+
+- **`docs/`** and **`mkdocs.yml`** control the site. Do not create docs outside the `nav:` tree.
+- `docs/index.md` dynamically includes `README.md` via MkDocs snippets.
+- Use `{{placeholder}}` variables for templated fields (e.g., `template-python`, `markurtz`).
+
+## Agent Notes
+
+_Add notes here when updating instructions for AI agents._
+
+
+## File: DEVELOPING.md
+
+# Developing `template-python`
+
+This guide provides instructions for setting up your development environment, navigating the project structure, and adhering to our coding standards.
+
+## Prerequisites
+
+Ensure your system meets the following requirements before getting started:
+
+- **[Docker](https://docs.docker.com/get-docker/)** (Recommended for isolated environments)
+- **[Git](https://git-scm.com/)** (Version control)
+- **[Python](https://www.python.org/)** 3.10+
+- **[Hatch](https://hatch.pypa.io/)** (Project manager)
+
+> [!NOTE]
+> We strongly recommend using our Docker setup to ensure your local environment exactly matches our CI/CD pipelines.
+
+## Quick Start (Docker)
+
+> [!IMPORTANT]
+> The `Dockerfile` and `docker-compose.yml` files included in this template are **placeholders** that must be filled in for your specific language stack before they are usable. The default `CMD` in both files will exit with an error if run without modification.
+>
+> Once implemented, you can spin up the development environment with:
+>
+> ```bash
+> git clone https://github.com/markurtz/template-python.git
+> cd template-python
+>
+> # Build and start the development environment in the background
+> docker-compose up -d --build
+> ```
+
+To view the logs of your running containers:
+
+```bash
+docker-compose logs -f
+```
+
+## Local Setup
+
+If you prefer to develop directly on your host machine, this project uses [uv](https://docs.astral.sh/uv/) for environment management and dependency resolution, alongside [Hatch](https://hatch.pypa.io/) as our command orchestrator.
+
+> [!NOTE]
+> **A note on shared tooling:** This project uses [MkDocs](https://www.mkdocs.org/) for documentation.
+
+```bash
+# 1. Install uv and hatch globally (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv tool install hatch
+
+# 2. Optionally, set up a Python virtual environment
+uv venv
+source .venv/bin/activate
+
+# 3. Sync the development environment (installs all dependency groups and extras)
+uv sync --all-groups --all-extras
+
+# 4. Run hatch commands directly
+hatch run test:all
+hatch run lint:check
+```
+
+### Managing Dependencies
+
+Use `uv` to add or update dependencies efficiently:
+
+```bash
+# Add a general dependency
+uv add <package>
+
+# Add a development dependency
+uv add --group dev <package>
+
+# Add to a specific extra
+uv add <package> --optional <extra_name>
+
+# Sync targeted groups or extras
+uv sync --group dev
+uv sync --extra <extra_name>
+```
+
+## Running Tests
+
+We maintain strict testing standards. Our tests are located in the `tests/` directory and are categorized by tier.
+
+| Test Tier       | Directory            | Description                                                        |
+| :-------------- | :------------------- | :----------------------------------------------------------------- |
+| **Unit**        | `tests/unit/`        | Fast, isolated tests for individual functions and classes.         |
+| **Integration** | `tests/integration/` | Slower tests that verify interactions between multiple components. |
+| **End-to-End**  | `tests/e2e/`         | Full-stack tests simulating real user workflows.                   |
+
+Replace the commands below with those appropriate for your language stack:
+
+```bash
+# Run unit tests
+hatch run test:unit
+
+# Run integration tests
+hatch run test:integration
+
+# Run all tests with coverage
+hatch run test:all-cov
+```
+
+## Code Quality and Formatting
+
+We use opinionated formatters and linters to maintain consistency: Ruff for linting/formatting and Mypy for static type checking.
+
+- **Formatters & Linters:**
+  ```bash
+  # Check for linting and formatting issues
+  hatch run lint:check
+  hatch run types:check
+
+  # Auto-format code
+  hatch run lint:format
+  ```
+
+> [!TIP]
+> **IDE Configuration:** We highly recommend configuring your editor (e.g., VSCode, IntelliJ) to format on save using the project's formatting tools. For VSCode, ensure you have the relevant extensions installed and check `.vscode/settings.json` if available.
+
+### Pre-commit Hooks
+
+We use [pre-commit](https://pre-commit.com/) to ensure code quality standards are met before changes are committed. This repository is configured to use our existing Hatch environments for these checks, guaranteeing consistency with CI/CD pipelines.
+
+**Setup:**
+
+1. Install pre-commit globally or in your local virtual environment:
+
+   ```bash
+   uv pip install pre-commit
+   ```
+
+1. Install the git hook scripts:
+
+   ```bash
+   pre-commit install
+   ```
+
+**Usage:**
+
+Once installed, pre-commit will automatically run on the modified files whenever you commit. To run the hooks manually on all files:
+
+```bash
+pre-commit run --all-files
+```
+
+## Git Workflow & Branching
+
+We follow a structured branching strategy to maintain a clean git history.
+
+1. **Branch Naming:**
+
+   - Feature branches: `feature/short-description`
+   - Bug fixes: `bugfix/short-description`
+   - Documentation: `docs/short-description`
+
+1. **Commit Messages:**
+   We encourage following [Conventional Commits](https://www.conventionalcommits.org/).
+
+   - `feat: add new user endpoint`
+   - `fix: resolve crash on startup`
+   - `docs: update developing guide`
+
+1. **Pull Requests:**
+
+   - Push your branch to the remote repository.
+   - Open a Pull Request against the `main` branch.
+   - Ensure all CI checks (tests, linters) pass.
+   - Request a review from at least one core maintainer.
+
+## CI/CD Architecture
+
+This repository uses a modular, standardized GitHub Actions architecture. Workflows are divided into core lifecycle events and reusable helper templates.
+
+### Lifecycle Workflows
+
+| Workflow                            | Trigger                | Purpose                                                                                                                       |
+| :---------------------------------- | :--------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
+| **Development** (`development.yml`) | Pull Request to `main` | Runs quality gates, security audits, unit/integration tests, and builds documentation previews. Blocks merges if checks fail. |
+| **Main** (`main.yml`)               | Push to `main`         | Post-merge validation. Runs unit/integration/e2e tests, quality/security checks, and updates the `latest` documentation.      |
+| **Nightly** (`nightly.yml`)         | Cron (Daily 00:00 UTC) | Runs extended regression tests, alpha builds, nightly documentation deployment, and deeper security analysis.                 |
+| **Release** (`release.yml`)         | Push of `v*.*.*` tag   | Performs full verification, builds immutable release packages, versioned documentation, and publishes artifacts.              |
+| **Weekly** (`weekly.yml`)           | Cron (Sun 00:00 UTC)   | Conducts dependency hygiene and full test suite regression to catch configuration drift.                                      |
+
+### PR Feedback & Cleanup
+
+- **Safe PR Commenting:** The `pr_comment.yml` workflow uses `workflow_run` to securely post CI status comments on pull requests, circumventing write permission limits on forks.
+- **Environment Cleanup:** When a PR is closed or merged, `development_cleanup.yml` automatically removes ephemeral documentation environments and artifacts to maintain a clean workspace.
+
+### Reusable Templates
+
+Our pipelines rely on modular templates located in `.github/workflows/_*.yml` (e.g., `_tests.yml`, `_quality.yml`, `_docs.yml`, `_security.yml`, `_build_package.yml`). This ensures testing granularity and linting rules remain perfectly consistent across all stages of the software lifecycle.
+
+## Building Documentation
+
+Our documentation is built using [MkDocs Material](https://squidfunk.github.io/mkdocs-material/). To preview documentation changes locally:
+
+```bash
+# Hatch manages the isolated docs environment
+# Serve documentation on http://127.0.0.1:8000 with hot-reload
+hatch run docs:serve
+```
+
+For further assistance, please refer to our [SUPPORT.md](SUPPORT.md).
+
+
+## File: CONTRIBUTING.md
+
+# Contributing to template-python
+
+First off, thank you for considering contributing to `template-python`! It's people like you that make this project great.
+
+## Code of Conduct
+
+By participating in this project, you are expected to uphold our [Code of Conduct](CODE_OF_CONDUCT.md). Please report any unacceptable behavior to the project team.
+
+## Security Vulnerabilities
+
+> [!IMPORTANT]
+> **Please do not report security vulnerabilities through public GitHub issues.**
+
+If you discover a security issue, please refer to our [Security Policy](SECURITY.md) for instructions on how to safely report it.
+
+## How Can I Contribute?
+
+There are many ways to contribute to `template-python`, and not all of them involve writing code:
+
+- **Reporting Bugs:** Help us improve by submitting detailed bug reports via our issue tracker.
+- **Suggesting Features:** Propose new features or enhancements that could benefit the project.
+- **Improving Documentation:** Fix typos, add examples, or write new guides.
+- **Writing Code:** Fix bugs, implement features, or improve performance.
+- **Helping Others:** Answer questions in [Discussions](https://github.com/markurtz/template-python/discussions) or issue comments.
+
+For general questions and help, please see [SUPPORT.md](SUPPORT.md).
+
+## Contributing Code
+
+If you are contributing code, please follow these structured steps:
+
+### 1. Development Setup
+
+Before you start coding, please refer to our [Development Guide](DEVELOPING.md) for detailed instructions on:
+
+- Setting up your local environment
+- Installing dependencies
+- Running the test suite
+- Code formatting and linting standards
+
+### 2. Finding an Issue
+
+- Look for issues tagged with `good first issue` or `help wanted` if you are a new contributor.
+- If you plan to work on a major feature, please open an issue or discussion first to talk it over with the maintainers.
+
+### 3. Making Changes
+
+1. **Fork the Repository:** Fork the `template-python` repository to your GitHub account.
+1. **Create a Branch:** Create a new branch from `main` for your work (e.g., `git checkout -b feat/add-new-feature`).
+1. **Write Code:** Implement your changes, adhering to the project's coding standards.
+1. **Write Tests:** Add unit tests or integration tests for your changes to ensure stability.
+1. **Run Tests:** Ensure all tests and linters pass locally before committing.
+
+### 4. Committing Your Changes
+
+- Write clear, concise commit messages.
+- We recommend using [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat: add support for X`, `fix: resolve issue with Y`).
+- If you are adding a new file, please include the appropriate Apache 2.0 copyright and license header at the top.
+
+### 5. Submitting a Pull Request
+
+1. **Push your branch:** `git push origin your-branch-name`.
+1. **Open a Pull Request:** Open a PR against the `main` branch of the upstream repository.
+1. **Fill out the PR Template:** Provide a clear description of your changes, link to any relevant issues (e.g., `Closes #123`), and complete any required checklists.
+1. **Pass CI:** Ensure all GitHub Actions CI checks pass.
+1. **Review:** Address any feedback from the maintainers. Once approved and checks pass, a maintainer will merge your PR.
+
+## Licensing
+
+By contributing to `template-python`, you agree that your contributions will be licensed under its [Apache 2.0 License](LICENSE).
+
+
+## File: SECURITY.md
+
+# Security Policy for `template-python`
+
+We take the security of `template-python` seriously. This document outlines our security policies, supported versions, and how to responsibly disclose a vulnerability.
+
+## Supported Versions
+
+Please check the table below for the versions of `template-python` that are currently being supported with security updates.
+
+| Version                         | Supported          |
+| :------------------------------ | :----------------- |
+| `{{current_major_version}}.x`   | :white_check_mark: |
+| `< {{current_major_version}}.0` | :x:                |
+
+*(Note: Replace the table contents with your actual versioning scheme once released.)*
+
+## Reporting a Vulnerability
+
+> [!IMPORTANT]
+> **Please do not report security vulnerabilities through public GitHub issues, discussions, or pull requests.**
+
+If you discover a security vulnerability, please bring it to our attention right away using one of the following methods:
+
+1. **GitHub Security Advisories (Preferred):** Use the "Report a vulnerability" button on the **[Security tab](https://github.com/markurtz/template-python/security/advisories)** of this repository.
+1. **Email:** Send your report directly to **[INSERT EMAIL ADDRESS OR SECURITY CONTACT]**. *(Optional: Encrypt your email using our PGP key: [INSERT PGP KEY LINK/FINGERPRINT])*
+
+### What to Include in Your Report
+
+To help us resolve the issue quickly, please include the following information:
+
+- **Type of vulnerability** (e.g., arbitrary code execution, path traversal, command injection).
+- **Detailed description** of the vulnerability and its potential impact.
+- **Step-by-step instructions** to reproduce the issue.
+- **Proof of Concept (PoC)** code or screenshots, if available.
+- **Environment details** (e.g., version of `template-python`, OS, Python version, relevant configurations).
+
+## Triage and Resolution Process
+
+We will handle your report with strict confidentiality. Our process is as follows:
+
+1. **Acknowledgment:** We will respond to your report as soon as possible, usually within a few business days.
+1. **Triage:** We will investigate the issue and determine its validity and severity. We may contact you for further clarification.
+1. **Fix:** If the vulnerability is verified, we will develop and test a patch.
+1. **Disclosure:** We will coordinate with you to publicly disclose the vulnerability once a fix is released. We will publicly acknowledge your responsible disclosure, if you wish.
+
+## Scope
+
+**In Scope:**
+
+- Vulnerabilities within the core `template-python` codebase.
+- Security issues resulting from our default configurations or execution paths.
+
+**Out of Scope:**
+
+- Theoretical issues without a reproducible PoC.
+- Vulnerabilities in third-party dependencies that are not exploitable through `template-python`.
+- Issues requiring the victim to intentionally clone and run `template-python` against a malicious, untrusted Git repository, unless it leads to unexpected system compromise beyond the expected permissions.
+
+*(Note: We currently do not operate a bug bounty program. Disclosures are greatly appreciated but are not eligible for financial rewards at this time.)*
+
+
+## File: SUPPORT.md
+
+# Support for `template-python`
+
+We are excited to have you use `template-python`! If you need help, please follow these guidelines to ensure you get support quickly and efficiently.
+
+## Security Vulnerabilities
+
+> [!IMPORTANT]
+> **Please do not report security vulnerabilities through public GitHub issues.**
+
+If you have found a security vulnerability, please refer to our [Security Policy](SECURITY.md) for instructions on how to securely report it.
+
+## Where to Find Help
+
+Before reaching out, we recommend checking the following resources. Many common questions and issues are already covered there.
+
+- **[Official Documentation](https://markurtz.github.io/template-python):** Comprehensive guides, tutorials, and API references.
+- **[GitHub Issues](https://github.com/markurtz/template-python/issues):** Search existing issues to see if someone else has already reported your problem or requested your feature. Feel free to add a "+1" reaction to existing issues to show your interest.
+- **[GitHub Discussions](https://github.com/markurtz/template-python/discussions):** Search our discussions for Q&A, general advice, and community knowledge.
+
+## Opening a New Issue
+
+If you cannot find an answer in the documentation or existing issues, please open a new issue. To help us resolve your issue faster, please choose the correct venue:
+
+| Issue Type             | Venue                                                                                                      | Description                                                                                                 |
+| :--------------------- | :--------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------- |
+| **Bug Report**         | [GitHub Issues](https://github.com/markurtz/template-python/issues/new)           | Use the "Bug Report" template. Provide reproducible steps, environment details, and relevant logs.          |
+| **Feature Request**    | [GitHub Issues](https://github.com/markurtz/template-python/issues/new)           | Use the "Feature Request" template. Clearly describe your use case and the problem the feature would solve. |
+| **Q&A / General Help** | [GitHub Discussions](https://github.com/markurtz/template-python/discussions/new) | Start a discussion for questions about how to use `template-python`, architecture queries, or advice.          |
+
+Feel free to join the conversation on GitHub Discussions to connect with other users and maintainers.
+
+## Commercial Support
+
+
+
+At this time, there is no official commercial support available for `template-python`. Support is provided on a best-effort basis by the open-source community and maintainers.

@@ -1,0 +1,64 @@
+# =============================================================================
+# CODEOWNERS — Automated Review Assignment
+#
+# GitHub uses this file to automatically request reviews from the designated
+# code owners when a pull request modifies files matching a given pattern.
+#
+# HOW TO USE THIS FILE:
+#   1. Replace all placeholder GitHub usernames (e.g., @org/team-name or
+#      @username) with your actual GitHub team or individual usernames.
+#   2. Rules are evaluated from top to bottom. The LAST matching rule wins.
+#   3. Patterns follow the same syntax as .gitignore.
+#
+# REFERENCE:
+#   https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Default Owner
+# Catches all files not matched by a more specific rule below.
+# This team or user is the reviewer of last resort.
+# -----------------------------------------------------------------------------
+*                               @{{maintainer_username}}
+
+# -----------------------------------------------------------------------------
+# CI/CD & Infrastructure
+# Requires review from a platform/infrastructure team for any workflow changes.
+# -----------------------------------------------------------------------------
+.github/                        @{{maintainer_username}}
+.github/workflows/              @{{maintainer_username}}
+
+# -----------------------------------------------------------------------------
+# Documentation
+# Route docs changes to the team responsible for content quality.
+# -----------------------------------------------------------------------------
+docs/                           @{{maintainer_username}}
+*.md                            @{{maintainer_username}}
+mkdocs.yml                      @{{maintainer_username}}
+
+# -----------------------------------------------------------------------------
+# Security-Sensitive Files
+# Any change to security policy, secrets config, or dependencies must be
+# reviewed by the security team.
+# -----------------------------------------------------------------------------
+SECURITY.md                     @{{maintainer_username}}
+.github/dependabot.yml          @{{maintainer_username}}
+.pre-commit-config.yaml         @{{maintainer_username}}
+
+# -----------------------------------------------------------------------------
+# Core Source Code
+# Replace with the path to your primary package directory.
+# -----------------------------------------------------------------------------
+src/                            @{{maintainer_username}}
+
+# -----------------------------------------------------------------------------
+# Tests
+# Requires review from someone responsible for test quality and coverage.
+# -----------------------------------------------------------------------------
+tests/                          @{{maintainer_username}}
+
+# -----------------------------------------------------------------------------
+# Container & Deployment
+# -----------------------------------------------------------------------------
+Dockerfile                      @{{maintainer_username}}
+docker-compose.yml              @{{maintainer_username}}

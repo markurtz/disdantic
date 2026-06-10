@@ -1,0 +1,74 @@
+---
+name: 🐛 Bug Report
+description: Create a report to help us improve template-python
+labels:
+  - "bug"
+  - "triage"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug to `template-python`!
+        > [!IMPORTANT]
+        > If you have found a **security vulnerability**, please refer to our [Security Policy](../SECURITY.md) and do not open a public issue.
+        For general help and Q&A, please use [GitHub Discussions](https://github.com/markurtz/template-python/discussions) instead.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Search before asking
+      description: Please confirm that you have checked the following before submitting your
+        bug report.
+      options:
+        - label: I have searched the [existing issues](https://github.com/markurtz/template-python/issues)
+            and could not find a similar bug.
+          required: true
+        - label: I have read the [Official Documentation](https://markurtz.github.io/template-python).
+          required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Tell us what happened...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Provide a minimal, reproducible example or the exact steps to reproduce
+        the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen instead.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Please provide details about your environment.
+      value: |
+        - OS (e.g., Linux, macOS, Windows):
+        - Language Version (e.g., Python 3.10):
+        - `template-python` Version:
+        - Other relevant dependency versions:
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs or Screenshots
+      description: If applicable, add screenshots or paste command output/logs to help explain
+        your problem. Please use code blocks (```) to format logs.
+    validations:
+      required: false

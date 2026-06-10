@@ -1,0 +1,62 @@
+---
+# =============================================================================
+# main.yml
+#
+# Triggers:
+#   push → main
+#
+# Stage 1 — Quality Gate & Security Audit
+# Stage 2 — Tests (Unit, Integration, E2E)
+# Stage 3 — Documentation (dev)
+# =============================================================================
+name: "CI — Main"
+on:
+  push:
+    branches:
+      - main
+concurrency:
+  group: "main-${{ github.ref_name }}"
+  cancel-in-progress: true
+permissions:
+  contents: write
+  security-events: write
+  actions: read
+jobs:
+
+  # ── Stage 1: Quality Gate & Security ───────────────────────────────────────
+  quality:
+    name: "Quality Gate"
+    uses: ./.github/workflows/_quality.yml
+    with:
+      python_versions: '["3.10", "3.14"]'
+  security:
+    name: "Security Audit"
+    uses: ./.github/workflows/_security.yml
+
+  # ── Stage 2: Tests ─────────────────────────────────────────────────────────
+  tests:
+    name: "Run Tests"
+    uses: ./.github/workflows/_tests.yml
+    with:
+      test_matrix: >-
+        [
+          {"level": "unit", "types": "smoke, sanity"},
+          {"level": "integration", "types": "smoke, sanity"},
+          {"level": "e2e", "types": "smoke"}
+        ]
+      python_versions: '["3.10", "3.14"]'
+      generate_coverage: true
+      publish_results: true
+      retention_days: 14
+
+  # ── Stage 3: Documentation ─────────────────────────────────────────────────
+  docs:
+    name: "Build & Deploy Docs"
+    needs:
+      - quality
+      - tests
+    uses: ./.github/workflows/_docs.yml
+    with:
+      build_type: "dev"
+      alias: "latest"
+      include_coverage: true
