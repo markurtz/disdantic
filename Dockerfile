@@ -7,7 +7,7 @@
 # ---------------------------------------------------------
 # Build Stage
 # ---------------------------------------------------------
-FROM python:3.10-slim AS builder
+FROM python:3.14-slim AS builder
 
 # Set working directory
 WORKDIR /app
@@ -37,7 +37,7 @@ RUN hatch build
 # ---------------------------------------------------------
 # Runtime Stage
 # ---------------------------------------------------------
-FROM python:3.10-slim
+FROM python:3.14-slim
 
 # OCI Standard Labels
 LABEL org.opencontainers.image.title="template-python"
