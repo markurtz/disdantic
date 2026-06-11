@@ -1,463 +1,2256 @@
-# template-python Full Documentation
+# disdantic Full Documentation
 
 This file contains the concatenated core documentation for the project to provide comprehensive context to LLMs.
 
-# template-python
+# disdantic
 
-> An opinionated, production-ready Apache 2.0 template repository for bootstrapping modern software projects.
+> A lightweight collection of utilities and mixins for Pydantic.
 
-`template-python` is designed to eliminate boilerplate and enforce consistency across an organization's repositories.
-For comprehensive context and full documentation, please see [llms-full.txt](llms-full.txt).
+`disdantic` simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate.
+For complete, merged context containing the full codebase and all guides, see [llms-full.txt](llms-full.txt).
 
-## Docs
-- [Home](https://markurtz.github.io/template-python/): Documentation site home page
-- [Getting Started](https://markurtz.github.io/template-python/getting-started/): Installation, quickstart, and workflow guides
-- [Guides](https://markurtz.github.io/template-python/guides/): How-to guides for common tasks
-- [API Reference](https://markurtz.github.io/template-python/reference/): Full API reference documentation
+## Primary Documentation Links
+- [Documentation Home](https://markurtz.github.io/disdantic/): Main site home page
+- [Getting Started](https://markurtz.github.io/disdantic/getting-started/): Onboarding, installation, and setup
+- [Guides](https://markurtz.github.io/disdantic/guides/): How-to guides for common tasks
+- [API Reference](https://markurtz.github.io/disdantic/reference/): Complete API reference
 
-## Repository Files
-- [README.md](https://github.com/markurtz/template-python/blob/main/README.md): Project overview and quick start
-- [AGENTS.md](https://github.com/markurtz/template-python/blob/main/AGENTS.md): AI agent coding instructions
-- [DEVELOPING.md](https://github.com/markurtz/template-python/blob/main/DEVELOPING.md): Developer setup guide
+## Architectural Topography
 
-## Optional
-- [Full Documentation](https://markurtz.github.io/template-python/llms-full.txt): The complete concatenated documentation for template-python
+### Configuration & Entrypoints
+- [pyproject.toml](pyproject.toml): Project settings, environment scripts, and Hatch metadata.
+- [AGENTS.md](AGENTS.md): Foundational agent development guidelines, build commands, and security boundaries.
+- [CLAUDE.md](CLAUDE.md): Direct pointer routing assistants to `AGENTS.md`.
+- [src/disdantic/__main__.py](src/disdantic/__main__.py): Standalone CLI entrypoint.
+
+### Core Python Modules
+- [src/disdantic/__init__.py](src/disdantic/__init__.py): Package initialization.
+- [src/disdantic/settings.py](src/disdantic/settings.py): Pydantic settings configuration.
+- [src/disdantic/logging.py](src/disdantic/logging.py): Loguru logging setup and custom handlers.
+- [src/disdantic/compat.py](src/disdantic/compat.py): Compatibility layer.
+
+### Testing Suite Tiers
+- [tests/python/unit/](tests/python/unit/): Python unit test suite.
+- [tests/python/integration/](tests/python/integration/): Python integration test suite.
+- [tests/e2e/](tests/e2e/): High-level black-box orchestrator integration tests.
+
+## File: pyproject.toml
+
+
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+[build-system]
+requires = ["hatchling", "gitversioned"]
+build-backend = "hatchling.build"
+
+[project]
+name = "disdantic"
+dynamic = ["version"]
+description = "A lightweight collection of utilities and mixins for Pydantic. disdantic simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Mark Kurtz" }]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+  "loguru~=0.7",
+  "pydantic~=2.0",
+  "pydantic-settings~=2.0",
+  "tomli~=2.0; python_version < '3.11'",
+  "tstr>=0.4.1",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+opentelemetry = ["opentelemetry-api>=1.0.0", "opentelemetry-sdk>=1.0.0"]
+
+[dependency-groups]
+test = [
+  "pytest>=9.0.3,<10",
+  "pytest-asyncio>=1.4.0,<2",
+  "pytest-cov>=7.1.0,<8",
+  "pytest-mock>=3.15.1,<4",
+  "respx>=0.23.1,<1",
+  "pytest-xdist>=3.5,<4",
+]
+lint = [
+  "ty",
+  "ruff>=0.15,<1",
+  "mdformat>=1.0,<2",
+  "mdformat-frontmatter>=2.0,<3",
+  "mdformat-gfm>=1.0,<2",
+  "mdformat-footnote>=0.1.1,<1",
+  "mdformat-gfm-alerts>=1.0.1,<3",
+  "yamllint>=1.35,<2",
+  "urlchecker>=0.0.35",
+  "phmdoctest>=1.4,<2",
+  "yamlfix>=1.19,<2",
+  "taplo",
+]
+docs = [
+  "zensical>=0.0.40",
+  "mkdocs-gen-files>=0.5.0",
+  "mkdocstrings>=0.24.0",
+  "mkdocstrings-python>=1.9.0",
+  # Temporary bridge: Zensical compatible fork of mike.
+  # Update to Zensical native versioning once stabilized.
+  "mike @ git+https://github.com/squidfunk/mike.git",
+]
+security = [
+  "detect-secrets>=1.5,<2",
+  "checkov>=3.0,<4",
+  "semgrep>=1.73,<2",
+  "pip-audit>=2.7,<3",
+]
+environment = ["hatch>=1.12.0", "gitversioned>=0.2.0"]
+dev = [
+  { include-group = "test" },
+  { include-group = "lint" },
+  { include-group = "docs" },
+  { include-group = "security" },
+  { include-group = "environment" },
+]
+
+[project.scripts]
+disdantic = "disdantic.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/markurtz/disdantic"
+Repository = "https://github.com/markurtz/disdantic.git"
+Issues = "https://github.com/markurtz/disdantic/issues"
+Documentation = "https://markurtz.github.io/disdantic/"
+
+
+# ==============================================================================
+# Versioning
+# ==============================================================================
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/disdantic"]
+artifacts = ["src/disdantic/version.py"]
+
+[tool.hatch.build.targets.sdist]
+artifacts = ["src/disdantic/version.py"]
+
+[tool.hatch.version]
+source = "gitversioned"
+source_type = ["tag"]
+output = "src/disdantic/version.py"
+
+[tool.gitversioned.auto_increment]
+pre = "minor"
+dev = "patch"
+
+[tool.gitversioned.overrides.docker]
+output = "Dockerfile"
+output_strategies = { type = "regex", pattern = '''(?m)^(\s*ARG\s+VERSION\s*=\s*)(?P<version>[^\s\n]+)''' }
+
+
+# ==============================================================================
+# Hatch Environment Configurations
+# ==============================================================================
+
+[tool.hatch.envs.default]
+dependency-groups = ["dev"]
+
+[tool.hatch.envs.default.env-vars]
+COVERAGE_CORE = "pytrace"
+GITVERSIONED__LOGGING__LEVEL = "ERROR"
+PYTHONPATH = "."
+PYTHON_TARGETS = "docs examples scripts src tests"
+OCI_IMAGE = "disdantic:latest"
+MDFORMAT_TARGETS = ".devcontainer/ .github/ docs/*.md docs/community/ docs/examples/ docs/getting-started/ docs/guides/ examples/ scripts/ src/ tests/ *.md"
+YAML_TARGETS = ".devcontainer/ .github/ docs/ examples/ scripts/ src/ tests/ *.yml *.yaml"
+TOML_TARGETS = ".devcontainer/ .github/ docs/ examples/ scripts/ src/ tests/ *.toml"
+PYTHON_SRC = "disdantic"
+PYTHON_UNIT_TESTS = "tests/python/unit"
+PYTHON_INT_TESTS = "tests/python/integration"
+PYTHON_COV_DIR = "coverage/python"
+E2E_TESTS = "tests/e2e"
+DOC_TESTS_PATH = ".tests/docs"
+SECRETS_BASELINE = ".detect-secrets.scan.json"
+RUN_OCI_SCRIPT = "scripts/run_oci.py"
+CHECK_LINKS_SCRIPT = "scripts/check_links.py"
+GENERATE_DOC_TESTS_SCRIPT = "scripts/generate_doc_tests.py"
+
+[tool.hatch.envs.all]
+template = "default"
+builder = true
+
+[tool.hatch.envs.all.scripts]
+lint = [
+  "hatch run python:lint {args}",
+  "hatch run oci:lint {args}",
+  "hatch run project:lint {args}",
+]
+format = [
+  "hatch run python:format {args}",
+  "hatch run oci:format {args}",
+  "hatch run project:format {args}",
+]
+types = [
+  "hatch run python:types {args}",
+  "hatch run oci:types {args}",
+  "hatch run project:types {args}",
+]
+security = [
+  "hatch run python:security {args}",
+  "hatch run oci:security {args}",
+  "hatch run project:security {args}",
+]
+quality = [
+  "hatch run python:quality {args}",
+  "hatch run oci:quality {args}",
+  "hatch run project:quality {args}",
+]
+build = [
+  "hatch build {args}",
+  "hatch run oci:build {args}",
+  "hatch run project:docs {args}",
+]
+tests = ["hatch run tests-func {args}", "hatch run tests-e2e {args}"]
+tests-cov = [
+  "hatch run tests-func-cov {args}",
+  "hatch run tests-e2e-cov {args}",
+]
+tests-func = [
+  "hatch run python:tests-func {args}",
+  "hatch run oci:tests-func {args}",
+  "hatch run project:tests-func {args}",
+]
+tests-func-cov = [
+  "hatch run python:tests-func-cov {args}",
+  "hatch run oci:tests-func-cov {args}",
+  "hatch run project:tests-func-cov {args}",
+]
+tests-unit = [
+  "hatch run python:tests-unit {args}",
+  "hatch run oci:tests-unit {args}",
+  "hatch run project:tests-unit {args}",
+]
+tests-unit-cov = [
+  "hatch run python:tests-unit-cov {args}",
+  "hatch run oci:tests-unit-cov {args}",
+  "hatch run project:tests-unit-cov {args}",
+]
+tests-int = [
+  "hatch run python:tests-int {args}",
+  "hatch run oci:tests-int {args}",
+  "hatch run project:tests-int {args}",
+]
+tests-int-cov = [
+  "hatch run python:tests-int-cov {args}",
+  "hatch run oci:tests-int-cov {args}",
+  "hatch run project:tests-int-cov {args}",
+]
+tests-e2e = [
+  "hatch run python:tests-e2e {args}",
+  "hatch run oci:tests-e2e {args}",
+  "hatch run project:tests-e2e {args}",
+]
+tests-e2e-cov = [
+  "hatch run python:tests-e2e-cov {args}",
+  "hatch run oci:tests-e2e-cov {args}",
+  "hatch run project:tests-e2e-cov {args}",
+]
+docs = [
+  "hatch run python:docs {args}",
+  "hatch run oci:docs {args}",
+  "hatch run project:docs {args}",
+]
+docs-serve = ["hatch run docs {args}", "hatch run project:docs-serve {args}"]
+
+# ==============================================================================
+# Python Environment
+# ==============================================================================
+[tool.hatch.envs.python]
+template = "default"
+builder = true
+
+[tool.hatch.envs.python.scripts]
+lint = [
+  "ruff check {args:{env:PYTHON_TARGETS}}",
+  "ruff format --check {args:{env:PYTHON_TARGETS}}",
+]
+format = [
+  "ruff check --fix {args:{env:PYTHON_TARGETS}}",
+  "ruff format {args:{env:PYTHON_TARGETS}}",
+]
+types = "ty check {args:{env:PYTHON_TARGETS}}"
+security = [
+  "semgrep scan --error {args}",
+  "pip-audit --ignore-vuln PYSEC-2026-175 --ignore-vuln PYSEC-2026-177 --ignore-vuln PYSEC-2026-178 --ignore-vuln PYSEC-2026-179 {args}",
+  "ruff check --select S {args:{env:PYTHON_TARGETS}}",
+]
+quality = [
+  "hatch run python:format {args}",
+  "hatch run python:lint {args}",
+  "hatch run python:types {args}",
+  "hatch run python:security {args}",
+]
+tests-func = "python -m pytest {env:PYTHON_UNIT_TESTS} {env:PYTHON_INT_TESTS} {args}"
+tests-func-cov = [
+  "python -c \"import pathlib; pathlib.Path('{env:PYTHON_COV_DIR}').mkdir(parents=True, exist_ok=True)\"",
+  "python -m pytest --cov={env:PYTHON_SRC} --cov-context=test --cov-report=term --cov-report=markdown:{env:PYTHON_COV_DIR}/coverage_tests-func.md {env:PYTHON_UNIT_TESTS} {env:PYTHON_INT_TESTS} {args}",
+  "coverage report --contexts=\".*tests/python/unit/.*|^$\" --format=markdown > {env:PYTHON_COV_DIR}/coverage_tests-unit.md",
+  "coverage report --contexts=\".*tests/python/integration/.*|^$\" --format=markdown > {env:PYTHON_COV_DIR}/coverage_tests-int.md",
+  "python -c \"import pathlib; [p.write_text('\\n'.join(line for line in p.read_text().splitlines() if not line.startswith('Combined'))) for p in (pathlib.Path('{env:PYTHON_COV_DIR}/coverage_tests-unit.md'), pathlib.Path('{env:PYTHON_COV_DIR}/coverage_tests-int.md')) if p.exists()]\"",
+]
+tests-unit = "python -m pytest {env:PYTHON_UNIT_TESTS} {args}"
+tests-unit-cov = [
+  "python -c \"import pathlib; pathlib.Path('{env:PYTHON_COV_DIR}').mkdir(parents=True, exist_ok=True)\"",
+  "python -m pytest --cov={env:PYTHON_SRC} --cov-report=term --cov-report=markdown:{env:PYTHON_COV_DIR}/coverage_tests-unit.md {env:PYTHON_UNIT_TESTS} {args}",
+]
+tests-int = "python -m pytest {env:PYTHON_INT_TESTS} {args}"
+tests-int-cov = [
+  "python -c \"import pathlib; pathlib.Path('{env:PYTHON_COV_DIR}').mkdir(parents=True, exist_ok=True)\"",
+  "python -m pytest --cov={env:PYTHON_SRC} --cov-report=term --cov-report=markdown:{env:PYTHON_COV_DIR}/coverage_tests-int.md {env:PYTHON_INT_TESTS} {args}",
+]
+tests-e2e = [
+  "hatch build",
+  "pip install --force-reinstall --no-deps --no-index --find-links=dist disdantic",
+  "python -m pytest {env:E2E_TESTS} {args}",
+]
+tests-e2e-cov = [
+  "python -c \"import pathlib; pathlib.Path('{env:PYTHON_COV_DIR}').mkdir(parents=True, exist_ok=True)\"",
+  "hatch build",
+  "pip install --force-reinstall --no-deps --no-index --find-links=dist disdantic",
+  "python -m pytest --cov=disdantic --cov-report=term --cov-report=markdown:{env:PYTHON_COV_DIR}/coverage_tests-e2e.md {env:E2E_TESTS} {args}",
+]
+docs = [
+  "python -c \"import pathlib; pathlib.Path('.docs').mkdir(exist_ok=True)\"",
+  "typer src/disdantic/__main__.py utils docs --name disdantic --output .docs/cli.md",
+]
+
+# ==============================================================================
+# OCI Environment
+# ==============================================================================
+[tool.hatch.envs.oci]
+template = "default"
+
+[tool.hatch.envs.oci.scripts]
+lint = [
+  "python {env:RUN_OCI_SCRIPT} hadolint {args}",
+  "python {env:RUN_OCI_SCRIPT} compose-config {args}",
+  "python {env:RUN_OCI_SCRIPT} dclint {args}",
+]
+format = "python {env:RUN_OCI_SCRIPT} dclint --fix {args}"
+types = "echo '[INFO] Type checking is not applicable for the OCI environment' {args}"
+security = [
+  "python {env:RUN_OCI_SCRIPT} dockle {args}",
+  "python {env:RUN_OCI_SCRIPT} trivy {args}",
+]
+quality = [
+  "hatch run oci:format {args}",
+  "hatch run oci:lint {args}",
+  "hatch run oci:types {args}",
+  "hatch run oci:security {args}",
+]
+tests-func = [
+  "hatch run oci:tests-unit {args}",
+  "hatch run oci:tests-int {args}",
+]
+tests-func-cov = [
+  "hatch run oci:tests-unit-cov {args}",
+  "hatch run oci:tests-int-cov {args}",
+]
+tests-unit = "echo '[INFO] No unit tests are defined for the OCI environment' {args}"
+tests-unit-cov = [
+  "hatch run oci:tests-unit {args}",
+  "echo '[INFO] No coverage analysis is applicable for unit tests in the OCI environment'",
+]
+tests-int = "echo '[INFO] No integration tests are defined for the OCI environment' {args}"
+tests-int-cov = [
+  "hatch run oci:tests-int {args}",
+  "echo '[INFO] No coverage analysis is applicable for integration tests in the OCI environment'",
+]
+tests-e2e = "python {env:RUN_OCI_SCRIPT} cstest {args}"
+tests-e2e-cov = [
+  "hatch run oci:tests-e2e {args}",
+  "echo '[INFO] No coverage analysis is applicable for E2E tests in the OCI environment'",
+]
+docs = "echo '[INFO] No documentation is defined for the OCI environment' {args}"
+build = "docker build -t {env:OCI_IMAGE} . {args}"
+
+# ==============================================================================
+# Project Environment
+# ==============================================================================
+[tool.hatch.envs.project]
+template = "default"
+
+[tool.hatch.envs.project.scripts]
+lint = [
+  "mdformat --check {args:{env:MDFORMAT_TARGETS}}",
+  "yamlfix --check {args:{env:YAML_TARGETS}}",
+  "yamllint {args:{env:YAML_TARGETS}}",
+  "taplo check {args:{env:TOML_TARGETS}}",
+]
+format = [
+  "mdformat {args:{env:MDFORMAT_TARGETS}}",
+  "yamlfix {args:{env:YAML_TARGETS}}",
+  "taplo fmt {args:{env:TOML_TARGETS}}",
+]
+types = "echo '[INFO] Type checking is not applicable for the project environment' {args}"
+security = [
+  "detect-secrets scan --baseline {env:SECRETS_BASELINE} {args:.}",
+  "python -m checkov.main --quiet {args:-d .}",
+]
+quality = [
+  "hatch run project:format {args}",
+  "hatch run project:lint {args}",
+  "hatch run project:types {args}",
+  "hatch run project:security {args}",
+]
+security-update = ["detect-secrets scan {args:.} > {env:SECRETS_BASELINE}"]
+tests-func = [
+  "hatch run project:tests-unit {args}",
+  "hatch run project:tests-int {args}",
+]
+tests-func-cov = [
+  "hatch run project:tests-unit-cov {args}",
+  "hatch run project:tests-int-cov {args}",
+]
+tests-unit = "echo '[INFO] No unit tests are defined for the project environment'"
+tests-unit-cov = [
+  "hatch run project:tests-unit {args}",
+  "echo '[INFO] No coverage analysis is applicable for unit tests in the project environment'",
+]
+tests-int = [
+  "python {env:GENERATE_DOC_TESTS_SCRIPT} {args:{env:PYTHON_TARGETS}}",
+  "python -m pytest {env:DOC_TESTS_PATH} {args}",
+]
+tests-int-cov = [
+  "hatch run project:tests-int {args}",
+  "echo '[INFO] No coverage analysis is applicable for integration tests in the project environment'",
+]
+link-checks = "python {env:CHECK_LINKS_SCRIPT} {args:{env:MDFORMAT_TARGETS}}"
+link-checks-cov = [
+  "hatch run project:link-checks {args}",
+  "echo '[INFO] No coverage analysis is applicable for link checks in the project environment'",
+]
+tests-e2e = ["python -m pytest --import-mode=importlib examples {args}"]
+tests-e2e-cov = [
+  "hatch run project:tests-e2e {args}",
+  "echo '[INFO] No coverage analysis is applicable for E2E tests in the project environment'",
+]
+docs = [
+  "python docs/scripts/gen_ref_pages.py generate",
+  "python -m zensical {args:build}",
+]
+docs-serve = [
+  "python docs/scripts/gen_ref_pages.py generate",
+  "python -m zensical serve {args}",
+]
+
+
+[tool.ty.src]
+include = ["src/disdantic", "tests"]
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+exclude = [
+  "build",
+  "dist",
+  "env",
+  ".venv",
+  "src/disdantic/version.py",
+  ".tests",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+ignore = [
+  "COM812",  # ignore trailing comma errors due to older Python versions
+  "ISC001",  # implicit string concatenation (often disabled when using ruff format)
+  "PD011",   # ignore .values usage since ruff assumes it's a Pandas DataFrame
+  "PLR0913", # ignore too many arguments in function definitions
+  "PLW1514", # allow Path.open without encoding
+  "RET505",  # allow `else` blocks
+  "RET506",  # allow `else` blocks
+  "S311",    # allow standard pseudo-random generators
+  "TC001",   # ignore imports used only for type checking
+  "TC002",   # ignore imports used only for type checking
+  "TC003",   # ignore imports used only for type checking
+]
+select = [
+  # Rules reference: https://docs.astral.sh/ruff/rules/
+
+  # Code Style / Formatting
+  "E",      # pycodestyle: checks adherence to PEP 8 conventions including spacing, indentation, and line length
+  "W",      # pycodestyle: checks adherence to PEP 8 conventions including spacing, indentation, and line length
+  "A",      # flake8-builtins: prevents shadowing of Python built-in names
+  "C",      # Convention: ensures code adheres to specific style and formatting conventions
+  "COM",    # flake8-commas: enforces the correct use of trailing commas
+  "ERA",    # eradicate: detects commented-out code that should be removed
+  "I",      # isort: ensures imports are sorted in a consistent manner
+  "ICN",    # flake8-import-conventions: enforces import conventions for better readability
+  "N",      # pep8-naming: enforces PEP 8 naming conventions for classes, functions, and variables
+  "NPY",    # NumPy: enforces best practices for using the NumPy library
+  "PD",     # pandas-vet: enforces best practices for using the pandas library
+  "PT",     # flake8-pytest-style: enforces best practices and style conventions for pytest tests
+  "PTH",    # flake8-use-pathlib: encourages the use of pathlib over os.path for file system operations
+  "Q",      # flake8-quotes: enforces consistent use of single or double quotes
+  "TCH",    # flake8-type-checking: enforces type checking practices and standards
+  "TID",    # flake8-tidy-imports: enforces tidy and well-organized imports
+  "RUF022", # flake8-ruff: enforce sorting of __all__ in modules
+
+  # Code Structure / Complexity
+  "C4",  # flake8-comprehensions: improves readability and performance of list, set, and dict comprehensions
+  "C90", # mccabe: checks for overly complex code using cyclomatic complexity
+  "ISC", # flake8-implicit-str-concat: prevents implicit string concatenation
+  "PIE", # flake8-pie: identifies and corrects common code inefficiencies and mistakes
+  "R",   # Refactor: suggests improvements to code structure and readability
+  "SIM", # flake8-simplify: simplifies complex expressions and improves code readability
+
+  # Code Security / Bug Prevention
+  "ARG",   # flake8-unused-arguments: detects unused function and method arguments
+  "ASYNC", # flake8-async: identifies incorrect or inefficient usage patterns in asynchronous code
+  "B",     # flake8-bugbear: detects common programming mistakes and potential bugs
+  "BLE",   # flake8-blind-except: prevents blind exceptions that catch all exceptions without handling
+  "F",     # Pyflakes: detects unused imports, shadowed imports, undefined variables, and various formatting errors in string operations
+  "INP",   # flake8-no-pep420: prevents implicit namespace packages by requiring __init__.py
+  "PGH",   # pygrep-hooks: detects deprecated and dangerous code patterns
+  "PL",    # Pylint: comprehensive source code analyzer for enforcing coding standards and detecting errors
+  "RSE",   # flake8-raise: ensures exceptions are raised correctly
+  "S",     # flake8-bandit: detects security issues and vulnerabilities in the code
+  "SLF",   # flake8-self: prevents incorrect usage of the self argument in class methods
+  "T10",   # flake8-debugger: detects the presence of debugging tools such as pdb
+  "T20",   # flake8-print: detects print statements left in the code
+  "UP",    # pyupgrade: automatically upgrades syntax for newer versions of Python
+  "YTT",   # flake8-2020: identifies code that will break with future Python releases
+
+  # Code Documentation
+  "FIX", # flake8-fixme: detects FIXMEs and other temporary comments that should be resolved
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+  "S101",    # asserts allowed in tests
+  "ARG",     # Unused function args allowed in tests
+  "PLR2004", # Magic value used in comparison
+  "TCH002",  # No import only type checking in tests
+  "SLF001",  # enable private member access in tests
+  "S105",    # allow hardcoded passwords in tests
+  "S106",    # allow hardcoded passwords in tests
+  "S311",    # allow standard pseudo-random generators in tests
+  "PT011",   # allow generic exceptions in tests
+  "N806",    # allow uppercase variable names in tests
+  "PGH003",  # allow general ignores in tests
+  "PLR0915", # allow complex statements in tests
+  "S603",    # allow subprocess with untrusted input in tests
+  "S607",    # allow partial executable paths in tests
+  "T201",    # allow print in tests
+]
+"examples/**/*.py" = [
+  "T201",   # allow print in examples
+  "INP001", # allow implicit namespace packages
+  "S603",   # allow subprocess check with untrusted input
+  "S607",   # allow starting a process with a partial executable path
+  "S101",   # allow asserts in tests/examples
+]
+"scripts/**/*.py" = [
+  "T201",    # allow print in scripts
+  "INP001",  # allow implicit namespace packages
+  "S603",    # allow subprocess check with untrusted input
+  "S607",    # allow starting a process with a partial executable path
+  "PLC0415", # allow local imports (e.g. dynamic imports in build_docs)
+  "BLE001",  # allow catching blind Exception
+]
+"docs/**/*.py" = [
+  "T201",   # allow print in docs
+  "INP001", # allow implicit namespace packages
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["disdantic", "tests"]
+
+[tool.pytest.ini_options]
+addopts = "-s -vvv --cache-clear"
+asyncio_mode = "auto"
+log_level = "WARNING"
+markers = [
+  "smoke: quick tests to check basic functionality",
+  "sanity: detailed tests to ensure major functions work correctly",
+  "regression: tests to ensure that new changes do not break existing functionality",
+]
+testpaths = ["tests"]
+
+[tool.yamlfix]
+line_length = 88
+sequence_style = "block_style"
+preserve_quotes = true
+
+[tool.coverage.run]
+patch = ["subprocess"]
+
+
+## File: taplo.toml
+
+
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+include = [
+  "*.toml",
+  ".devcontainer/**/*.toml",
+  ".github/**/*.toml",
+  "docs/**/*.toml",
+  "examples/**/*.toml",
+  "scripts/**/*.toml",
+  "src/**/*.toml",
+  "tests/**/*.toml",
+]
+
+
+## File: .yamllint
+
+
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+extends: default
+
+ignore: |
+  .venv/
+  venv/
+  target/
+  build/
+  dist/
+
+rules:
+  line-length:
+    max: 300
+  truthy:
+    check-keys: false
+  document-start: disable
+
+
+## File: src/disdantic/__init__.py
+
+
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Core initialization module for the disdantic package.
+
+This module serves as the primary entry point for the library, exposing the public
+API components such as logging settings, application configuration, and version
+metadata for convenient access by downstream consumers.
+"""
+
+from __future__ import annotations
+
+from .logging import LoggingSettings, configure_logger, logger
+from .settings import Settings
+from .version import __version__
+
+__all__ = [
+    "LoggingSettings",
+    "Settings",
+    "__version__",
+    "configure_logger",
+    "logger",
+]
+
+configure_logger()
+
+
+## File: src/disdantic/logging.py
+
+
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Loguru-based logging configuration and environment settings for disdantic.
+
+This module provides a unified interface for configuring application-level logging
+using loguru and Pydantic settings. It handles dynamic OpenTelemetry formatting,
+across the codebase and build environments.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import functools
+import json
+import sys
+import traceback
+from collections.abc import Callable
+from typing import Any, ClassVar, Literal, TypeVar, cast, overload
+
+from loguru import logger
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from disdantic.compat import opentelemetry_trace
+
+__all__ = ["LoggingSettings", "autolog", "configure_logger", "logger"]
+
+_LOG_ENTRY_FORMAT: str = "Calling function '{name}' with args={args}, kwargs={kwargs}"
+_LOG_EXIT_FORMAT: str = "Function '{name}' returned: {result}"
+_LOG_EXCEPTION_FORMAT: str = "Exception occurred in function '{name}': {exception}"
+
+_FuncT = TypeVar("_FuncT", bound=Callable[..., Any])
+
+_state: dict[str, int | None] = {"handler_id": None}
+
+
+class LoggingSettings(BaseSettings):
+    """
+    Settings model for configuring the loguru logging infrastructure.
+
+    This Pydantic model loads configuration from environment variables prefixed
+    with ``DISDANTIC__LOGGING__`` and provides typed fields for controlling
+    log output, formatting, and OpenTelemetry integration.
+
+    Example:
+        .. code-block:: python
+
+            from disdantic.logging import LoggingSettings, configure_logger
+
+            settings = LoggingSettings(enabled=True, level="DEBUG")
+            configure_logger(settings)
+    """
+
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Whether to enable disdantic loguru logging across the application."
+        ),
+    )
+    clear_loggers: bool = Field(
+        default=False,
+        description=(
+            "If true, removes all existing loguru handlers before configuring new ones."
+        ),
+    )
+    sink: str | Any = Field(
+        default=sys.stdout,
+        description=(
+            "The output sink for log messages. Can be an object or string "
+            "alias ('stdout')."
+        ),
+    )
+    level: str = Field(
+        default="INFO",
+        description="The minimum severity level for emitted log messages.",
+    )
+    otel_formatting: Literal["auto", "enable", "disable"] = Field(
+        default="auto",
+        description=(
+            "Controls OpenTelemetry JSON formatting. 'auto' enables it if "
+            "otel is installed."
+        ),
+    )
+    format: str | Callable[..., Any] | None = Field(
+        default="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | "
+        "<cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>\n",
+        description=(
+            "The log format string or function to use when otel formatting is disabled."
+        ),
+    )
+    filter: Any = Field(
+        default=True,
+        description=(
+            "Filters log records. Defaults to True to filter by the 'disdantic' prefix."
+        ),
+    )
+    enqueue: bool = Field(
+        default=True,
+        description="Whether to enable thread-safe asynchronous logging.",
+    )
+    kwargs: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Additional keyword arguments to pass directly to loguru's add() method."
+        ),
+    )
+
+    model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
+        env_prefix="DISDANTIC__LOGGING__",
+        env_nested_delimiter="__",
+    )
+    """Pydantic configuration dict dictating environment variable prefixes."""
+
+    @field_validator("sink", mode="before")
+    @classmethod
+    def _parse_sink(cls, value: Any) -> Any:
+        # Convert string aliases for stdout/stderr to actual objects.
+        if isinstance(value, str):
+            mapping = {
+                "stdout": sys.stdout,
+                "sys.stdout": sys.stdout,
+                "stderr": sys.stderr,
+                "sys.stderr": sys.stderr,
+            }
+            return mapping.get(value.lower(), value)
+        return value
+
+
+def configure_logger(settings: LoggingSettings | None = None) -> None:
+    """
+    Initializes the loguru logger with the provided settings or from the environment.
+
+    This function configures the global loguru logger instance based on the provided
+    ``LoggingSettings``. It handles enabling/disabling the logger, managing sinks,
+    and injecting the appropriate formatter (including OpenTelemetry).
+
+    Example:
+        .. code-block:: python
+
+            from disdantic.logging import configure_logger, LoggingSettings
+
+            configure_logger(LoggingSettings(level="DEBUG"))
+
+    :param settings: An optional instance of ``LoggingSettings``. If not provided,
+                     settings are automatically loaded from the environment.
+    :return: None
+    :raises ImportError: If OpenTelemetry formatting is explicitly enabled but the
+                         package is not installed.
+    """
+    settings = settings or LoggingSettings()
+
+    if not settings.enabled:
+        logger.disable("disdantic")
+        return
+
+    logger.enable("disdantic")
+
+    if settings.clear_loggers:
+        logger.remove()
+        _state["handler_id"] = None
+    elif isinstance(_state["handler_id"], int):
+        with contextlib.suppress(ValueError):
+            logger.remove(_state["handler_id"])
+        _state["handler_id"] = None
+
+    use_otel = settings.otel_formatting == "enable" or (
+        settings.otel_formatting == "auto" and opentelemetry_trace is not None
+    )
+    if settings.otel_formatting == "enable" and opentelemetry_trace is None:
+        raise ImportError(
+            "OpenTelemetry is not installed but 'otel_formatting' was set to 'enable'."
+        )
+
+    log_format = _otel_formatter if use_otel else settings.format
+    filter_val = "disdantic" if settings.filter is True else settings.filter
+
+    if isinstance(filter_val, (list, tuple, str)):
+        prefixes = (
+            tuple(filter_val)
+            if isinstance(filter_val, (list, tuple))
+            else (filter_val,)
+        )
+
+        def final_filter(record: dict[str, Any]) -> bool:
+            return bool(record["name"] and record["name"].startswith(prefixes))
+
+    else:
+        final_filter = None if filter_val is False else filter_val
+
+    _state["handler_id"] = logger.add(
+        cast("Any", settings.sink),
+        level=settings.level,
+        filter=cast("Any", final_filter),
+        format=cast("Any", log_format),
+        enqueue=settings.enqueue,
+        **settings.kwargs,
+    )
+
+
+@overload
+def autolog(func: _FuncT) -> _FuncT: ...
+
+
+@overload
+def autolog(
+    func: None = None,
+    *,
+    exception_log_level: str | None = "ERROR",
+) -> Callable[[_FuncT], _FuncT]: ...
+
+
+def autolog(
+    func: _FuncT | None = None,
+    *,
+    exception_log_level: str | None = "ERROR",
+) -> _FuncT | Callable[[_FuncT], _FuncT]:
+    """
+    Decorate a function to log call inputs, outputs, and any raised exceptions.
+
+    Examples:
+        Use as a direct decorator:
+
+        >>> @autolog
+        ... def add(a: int, b: int) -> int:
+        ...     return a + b
+
+        Use as a decorator factory call with defaults:
+
+        >>> @autolog()
+        ... def sub(a: int, b: int) -> int:
+        ...     return a - b
+
+        Use with a custom exception log level:
+
+        >>> @autolog(exception_log_level="WARNING")
+        ... def divide(a: int, b: int) -> float:
+        ...     return a / b
+
+    :param func: Target function to wrap, defaults to None.
+    :type func: Callable | None
+    :param exception_log_level: Log level for exception reporting,
+                                defaults to "ERROR".
+    :type exception_log_level: str | None
+    :return: The decorated wrapper or a decorator factory function.
+    :rtype: Callable
+    """
+
+    def decorator(func_to_wrap: _FuncT) -> _FuncT:
+        @functools.wraps(func_to_wrap)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            func_name = getattr(func_to_wrap, "__qualname__", "function")
+            logger.debug(
+                _LOG_ENTRY_FORMAT.format(name=func_name, args=args, kwargs=kwargs)
+            )
+            try:
+                result = func_to_wrap(*args, **kwargs)
+            except Exception as error:
+                if exception_log_level == "ERROR":
+                    logger.opt(exception=error).error(
+                        _LOG_EXCEPTION_FORMAT.format(name=func_name, exception=error),
+                    )
+                elif exception_log_level is not None:
+                    logger.log(
+                        exception_log_level,
+                        _LOG_EXCEPTION_FORMAT.format(name=func_name, exception=error),
+                    )
+                raise error
+            else:
+                logger.debug(_LOG_EXIT_FORMAT.format(name=func_name, result=result))
+                return result
+
+        return cast("_FuncT", wrapper)
+
+    if func is None:
+        return decorator
+    return decorator(func)
+
+
+def _otel_formatter(record: dict[str, Any]) -> str:
+    # Format the log record as an OpenTelemetry compliant JSON string.
+    trace_id = span_id = trace_flags = None
+
+    if opentelemetry_trace:
+        span = opentelemetry_trace.get_current_span()
+        context = span.get_span_context()
+        if context.is_valid:
+            trace_id = format(context.trace_id, "032x")
+            span_id = format(context.span_id, "016x")
+            trace_flags = format(context.trace_flags, "02x")
+
+    log_record = {
+        "timestamp": record["time"].isoformat(),
+        "severity_text": record["level"].name,
+        "body": record["message"],
+        "resource": {"service.name": "disdantic"},
+        "attributes": {
+            "module": record["name"],
+            "function": record["function"],
+            "line": record["line"],
+            "process_id": record["process"].id,
+            **record["extra"],
+        },
+    }
+
+    if record.get("exception"):
+        exception = record["exception"]
+        log_record["attributes"]["exception.type"] = exception.type.__name__
+        log_record["attributes"]["exception.message"] = str(exception.value)
+        log_record["attributes"]["exception.stacktrace"] = "".join(
+            traceback.format_exception(
+                exception.type, exception.value, exception.traceback
+            )
+        )
+
+    if trace_id:
+        log_record.update(
+            {
+                "trace_id": trace_id,
+                "span_id": span_id,
+                "trace_flags": trace_flags,
+            }
+        )
+
+    # Escape braces so loguru doesn't interpret the JSON string as a format string
+    # Escape '<' and '>' to prevent loguru from interpreting them as color markup tags
+    return (
+        json.dumps(log_record)
+        .replace("{", "{{")
+        .replace("}", "}}")
+        .replace("<", "\\<")
+        .replace(">", "\\>")
+    ) + "\n"
+
+
+## File: src/disdantic/settings.py
+
+
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Settings configuration for the disdantic application.
+
+This module provides the primary configuration structure for the application
+using Pydantic Settings. It aggregates configuration from multiple sources,
+including environment variables and CLI arguments, and exposes a unified interface
+for safe, typed configuration access across the codebase.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import ClassVar, Literal
+
+from pydantic import Field
+from pydantic_settings import (
+    BaseSettings,
+    CliSettingsSource,
+    PydanticBaseSettingsSource,
+    PyprojectTomlConfigSettingsSource,
+    SettingsConfigDict,
+)
+
+__all__ = ["Settings"]
+
+
+class Settings(BaseSettings):
+    """
+    Configuration state for the application.
+
+    This class aggregates and prioritizes configuration from multiple sources,
+    providing a unified state for the application. It is built on top of
+    pydantic-settings to allow validation, default values, and type coercion.
+
+    Example:
+        .. code-block:: python
+
+            from disdantic.settings import Settings
+
+            settings = Settings(environment="production")
+            print(settings.project_root)
+    """
+
+    model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
+        arbitrary_types_allowed=True,
+        extra="ignore",
+        populate_by_name=True,
+        validate_assignment=True,
+        env_prefix="DISDANTIC__",
+        cli_prefix="disdantic_",
+        cli_parse_args=True,
+        pyproject_toml_table_header=("tool", "disdantic"),
+    )
+    """Pydantic config dict dictating environment prefixes and validation."""
+
+    # Core Application Properties
+    project_root: Path = Field(
+        default_factory=Path.cwd,
+        description=(
+            "The root directory of the project. Used for resolving relative paths."
+        ),
+    )
+    environment: Literal["development", "staging", "production"] = Field(
+        default="development",
+        description="The current deployment environment of the application.",
+    )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """
+        Customize configuration sources and priority for loading settings.
+
+        This method overrides the default pydantic-settings loaders to resolve
+        values in the following order: constructor kwargs, pyproject.toml,
+        dotenv files, environment variables, and CLI arguments.
+        """
+        _ = (file_secret_settings,)  # Allow unused variable to satisfy lint/format
+        input_args = init_settings()
+        project_root = Path(input_args.get("project_root") or Path.cwd())
+
+        return (
+            init_settings,
+            PyprojectTomlConfigSettingsSource(
+                settings_cls, toml_file=project_root / "pyproject.toml"
+            ),
+            dotenv_settings,
+            env_settings,
+            CliSettingsSource(
+                settings_cls,
+                cli_ignore_unknown_args=True,
+                cli_parse_args=True,
+                cli_prefix=settings_cls.model_config.get("cli_prefix", ""),
+            ),
+        )
+
+    def __str__(self) -> str:
+        """
+        Return a concise string representation of the settings.
+
+        :return: A concise, human-readable string summary of the settings.
+        :rtype: str
+        """
+        return (
+            f"Settings(environment={self.environment!r}, "
+            f"project_root={self.project_root!r})"
+        )
+
+    def __repr__(self) -> str:
+        """
+        Return a detailed string representation of the settings.
+
+        :return: A detailed string representation suitable for debugging.
+        :rtype: str
+        """
+        return (
+            f"Settings("
+            f"environment={self.environment!r}, "
+            f"project_root={self.project_root!r}"
+            f")"
+        )
+
+
+## File: src/disdantic/compat.py
+
+
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Compatibility abstractions for optional dependencies.
+
+This module centralizes fallback logic for safely importing optional dependencies
+like ``opentelemetry``. It provides standardized access points for these modules,
+avoiding scattered ``try-except`` blocks across the codebase. Maintainers should
+import optional dependencies from this module rather than attempting direct
+imports elsewhere.
+"""
+
+from __future__ import annotations
+
+import types
+from typing import Annotated
+
+_opentelemetry_trace: types.ModuleType | None
+try:
+    from opentelemetry import (  # type: ignore[import-not-found, unused-ignore]
+        trace as _opentelemetry_trace_mod,
+    )
+
+    _opentelemetry_trace = _opentelemetry_trace_mod
+except ImportError:
+    _opentelemetry_trace = None
+
+__all__ = ["opentelemetry_trace"]
+
+opentelemetry_trace: Annotated[
+    types.ModuleType | None,
+    "Enables distributed tracing integration. Used for tracing execution paths "
+    "when OpenTelemetry is present. Provides the ``opentelemetry.trace`` module "
+    "or ``None``.",
+] = _opentelemetry_trace
+
+
+## File: src/disdantic/__main__.py
+
+
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Main entrypoint for the disdantic package.
+
+This module provides the executable routine when the package is run directly
+via the command line (e.g., ``python -m disdantic``). It uses Typer to define
+the CLI application and commands.
+"""
+
+from __future__ import annotations
+
+from typing import Annotated
+
+import typer
+
+from disdantic.logging import LoggingSettings, configure_logger, logger
+from disdantic.settings import Settings
+from disdantic.version import __version__
+
+__all__ = ["main"]
+
+app = typer.Typer(
+    help="Disdantic: A lightweight collection of utilities and mixins for Pydantic.",
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+
+
+@app.callback(invoke_without_command=True)
+def main_callback(
+    ctx: typer.Context,
+    version: Annotated[
+        bool | None,
+        typer.Option(
+            "--version",
+            "-v",
+            is_eager=True,
+            help="Show the application version and exit.",
+        ),
+    ] = None,
+) -> None:
+    """
+    Global setup for the CLI application.
+    Initializes application settings and logging.
+    """
+    if version:
+        typer.echo(f"disdantic v{__version__}")
+        raise typer.Exit
+
+    configure_logger(
+        LoggingSettings(
+            enabled=True,
+            level="INFO",
+            clear_loggers=True,
+            filter=("disdantic", "__main__"),
+        )
+    )
+    settings = Settings()
+
+    if ctx.invoked_subcommand is None:
+        logger.info("Hello from disdantic v{}!", __version__)
+        logger.info("Settings: {}", settings)
+
+
+def main() -> None:
+    """
+    Execute the main routine via Typer.
+    """
+    app()
+
+
+if __name__ == "__main__":
+    main()
+
+
+## File: src/disdantic/version.py
+
+
+"""
+Auto-generated version file from git-versioned
+"""
+
+from __future__ import annotations
+
+from typing import NamedTuple
+
+__all__ = [
+    "__BUILD_METADATA__",
+    "__GIT_METADATA__",
+    "__VERSION_METADATA__",
+    "BuildMetadata",
+    "GitMetadata",
+    "VersionMetadata",
+    "__version__",
+    "version",
+]
+
+
+class VersionMetadata(NamedTuple):
+    major: int
+    minor: int
+    patch: int
+    pre: tuple[str, int] | None
+    post: int | None
+    dev: int | None
+    local: str | None
+
+
+class GitMetadata(NamedTuple):
+    hash: str
+    branch: str
+    tag: str
+    dirty: list[str]
+    commit_count: int
+    commit_message: str
+    distance_from_head: int
+    is_head_commit: bool
+
+
+class BuildMetadata(NamedTuple):
+    timestamp: str
+    host: str
+    python_version: str
+    id: str
+
+
+__version__ = "0.1.1.dev20260610+5c44dc4"
+version = __version__
+
+__VERSION_METADATA__ = VersionMetadata(
+    major=0,
+    minor=1,
+    patch=1,
+    pre=None,
+    post=None,
+    dev=20260610,
+    local='5c44dc4',
+)
+
+__GIT_METADATA__ = GitMetadata(
+    hash="5c44dc457a32b4bfcce15902445c8b15b909462f",
+    branch="feat/repo-setup",
+    tag="",
+    dirty=['/Users/markkurtz/code/github/markurtz/disdantic/.devcontainer/Dockerfile', '/Users/markkurtz/code/github/markurtz/disdantic/.devcontainer/devcontainer.json', '/Users/markkurtz/code/github/markurtz/disdantic/.gitignore', '/Users/markkurtz/code/github/markurtz/disdantic/AGENTS.md', '/Users/markkurtz/code/github/markurtz/disdantic/CODE_OF_CONDUCT.md', '/Users/markkurtz/code/github/markurtz/disdantic/Dockerfile', '/Users/markkurtz/code/github/markurtz/disdantic/NOTICE', '/Users/markkurtz/code/github/markurtz/disdantic/docs/scripts/macros.py', '/Users/markkurtz/code/github/markurtz/disdantic/llms-full.txt', '/Users/markkurtz/code/github/markurtz/disdantic/scripts/check_links.py', '/Users/markkurtz/code/github/markurtz/disdantic/scripts/run_oci.py', '/Users/markkurtz/code/github/markurtz/disdantic/tests/README.md', '/Users/markkurtz/code/github/markurtz/disdantic/uv.lock', '/Users/markkurtz/code/github/markurtz/disdantic/pull_request_event.json', '/Users/markkurtz/code/github/markurtz/disdantic/push_event.json'],
+    commit_count=2,
+    commit_message="Update template for latest standards and add in disdantic branding and initial setup",
+    distance_from_head=0,
+    is_head_commit=True,
+)
+
+__BUILD_METADATA__ = BuildMetadata(
+    timestamp="2026-06-11 00:16:11.994901+00:00",
+    host="Marks-MacBook-Pro-2.local",
+    python_version="3.14.4",
+    id="14f8a339-8d29-4ce5-ab91-0d094a436f93",
+)
 
 
 ## File: README.md
 
+
+<!--
+Copyright 2026 markurtz
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/branding/logo-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/branding/logo-light.svg">
-    <img alt="template-python Logo" src="docs/assets/branding/logo-light.svg" width="400">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/markurtz/disdantic/main/docs/assets/branding/logo-white.svg">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/markurtz/disdantic/main/docs/assets/branding/logo-black.svg">
+    <img alt="disdantic Logo" src="https://raw.githubusercontent.com/markurtz/disdantic/main/docs/assets/branding/logo-black.svg" width="400">
   </picture>
 </p>
 
 <p align="center">
-  <em>An opinionated, production-ready Apache 2.0 template repository for bootstrapping modern software projects.</em>
+  <em>A lightweight collection of utilities and mixins for Pydantic.</em>
 </p>
 
 <p align="center">
   <!-- Package & Release Status -->
-  <a href="https://github.com/markurtz/template-python/releases">
-    <img src="https://img.shields.io/github/v/release/markurtz/template-python?label=Release" alt="GitHub Release">
+  <a href="https://github.com/markurtz/disdantic/releases">
+    <img src="https://img.shields.io/github/v/release/markurtz/disdantic?label=Release" alt="GitHub Release">
   </a>
-<!--   <a href="https://pypi.org/project/template-python/">
-    <img src="https://img.shields.io/pypi/v/template-python?label=PyPI" alt="PyPI Release">
-  </a> -->
-<!--   <a href="https://pypi.org/project/template-python/">
-    <img src="https://img.shields.io/pypi/pyversions/template-python?label=Python" alt="Supported Python Versions">
-  </a> -->
+  <a href="https://pypi.org/project/disdantic/">
+    <img src="https://img.shields.io/pypi/v/disdantic?label=PyPI" alt="PyPI Release">
+  </a>
+  <a href="https://pypi.org/project/disdantic/">
+    <img src="https://img.shields.io/pypi/pyversions/disdantic?label=Python" alt="Supported Python Versions">
+  </a>
   <br/>
   <!-- CI/CD & Build Status -->
-  <a href="https://github.com/markurtz/template-python/actions/workflows/main.yml">
-    <img src="https://github.com/markurtz/template-python/actions/workflows/main.yml/badge.svg" alt="CI Status">
+  <a href="https://github.com/markurtz/disdantic/actions/workflows/main.yml">
+    <img src="https://github.com/markurtz/disdantic/actions/workflows/main.yml/badge.svg" alt="CI Status">
   </a>
   <br/>
   <!-- Issues & Support -->
-  <a href="https://github.com/markurtz/template-python/issues?q=is%3Aissue+is%3Aclosed">
-    <img src="https://img.shields.io/github/issues-closed/markurtz/template-python?label=Issues%20Closed" alt="Closed Issues">
+  <a href="https://github.com/markurtz/disdantic/issues?q=is%3Aissue+is%3Aopen">
+    <img src="https://img.shields.io/github/issues/markurtz/disdantic?label=Issues%20Open" alt="Open Issues">
   </a>
-  <!-- Uncomment to display open issues:
-  <a href="https://github.com/markurtz/template-python/issues?q=is%3Aissue+is%3Aopen">
-    <img src="https://img.shields.io/github/issues/markurtz/template-python?label=Issues%20Open" alt="Open Issues">
-  </a>
-  -->
   <a href="https://opensource.org/licenses/Apache-2.0">
     <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://markurtz.github.io/template-python">Documentation</a> |
-  <a href="https://github.com/markurtz/template-python/milestones">Roadmap</a> |
-  <a href="https://github.com/markurtz/template-python/issues">Issues</a> |
-  <a href="https://github.com/markurtz/template-python/discussions">Discussions</a>
+  <a href="https://markurtz.github.io/disdantic/">Documentation</a> |
+  <a href="https://github.com/markurtz/disdantic/milestones">Roadmap</a> |
+  <a href="https://github.com/markurtz/disdantic/issues">Issues</a> |
+  <a href="https://github.com/markurtz/disdantic/discussions">Discussions</a>
 </p>
 
 ______________________________________________________________________
 
 ## Overview
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/branding/user-flow-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/branding/user-flow-light.svg">
-    <img alt="User Flow Diagram" src="docs/assets/branding/user-flow-light.svg" width="800">
-  </picture>
-</p>
+Welcome to the disdantic repository!
 
-Welcome to the template-python template repository! This template provides a robust foundation for building high-quality, scalable software projects. It includes standard directories, issue templates, CI/CD workflows, and comprehensive placeholder documentation.
+### Why Use disdantic?
 
-To use this template, run `uv run scripts/bootstrap.py` to automatically configure your project with your organization and repository details, update the placeholder SVG images in `docs/assets/branding/`, and you are ready to start coding.
-
-### Why Use template-python?
-
-- **Consistency:** Enforces a standardized layout and structure across your organization's repositories.
-- **Speed:** Bootstraps your project with pre-configured Actions, badges, and templates so you don't start from scratch.
-- **Best Practices:** Baked-in guides for contributing, security, and developer setup.
+Coming soon!
 
 ### Comparisons
 
-When evaluating template-python against other templates, consider the following differences:
-
-| Feature            | template-python Template            | Standard GitHub Init | Cookiecutter / Copier      |
-| :----------------- | :------------------------------- | :------------------- | :------------------------- |
-| **Setup Speed**    | Very Fast                        | Fast                 | Slower (requires CLI tool) |
-| **Visual Assets**  | Pre-configured Light/Dark assets | None                 | Varies                     |
-| **CI/CD Built-in** | Yes (GitHub Actions)             | No                   | Optional                   |
-| **Complexity**     | Low (Find and Replace)           | None                 | Medium (Jinja templates)   |
+Coming soon!
 
 ## What's New
 
-**Welcome to the template-python Launch!**
+**Welcome to the disdantic Launch!**
 
-This project has just been instantiated from the template repository. Keep an eye on this section for future release highlights, new features, and community announcements!
-
-<!-- Once your project is active, replace the launch message above with links to your latest release notes or top 3 new features here. -->
+`disdantic` is a lightweight collection of utilities and mixins for Pydantic. It simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate. Keep an eye on this section for future release highlights, new features, and community announcements!
 
 ## Quick Start
 
-```bash
-pip install template-python
-```
-
-For full installation options (from source, Docker, platform-specific notes) and step-by-step onboarding, see the **[Getting Started guide](https://markurtz.github.io/template-python/getting-started/)**.
+Coming soon!
 
 ## Core Concepts
 
-This project is built using modern Python tooling, enforcing strict code quality standards with Ruff and Mypy, and providing a robust Pydantic-driven settings architecture for configuration resolution.
+This project is built using modern Python tooling, enforcing strict code quality standards with Ruff and Astral's ty, and providing a robust Pydantic-driven settings architecture for configuration resolution.
 
 ### Component Architecture
 
 The repository is structured to separate documentation, application logic, and testing cleanly:
 
-- `src/template_python/`: The primary application source code.
-- `tests/`: Comprehensive test suite ensuring reliability, organized into `unit/`, `integration/`, and `e2e/`.
-- `docs/`: Source code for the MkDocs Material documentation site, including step-by-step guides, references, and getting started tutorials.
+- `src/disdantic/`: The primary application source code.
+- `tests/`: Comprehensive test suite ensuring reliability, organized into `python/unit/`, `python/integration/`, and `e2e/`.
+- `docs/`: Source code for the Zensical documentation site, including step-by-step guides, references, and getting started tutorials.
 - `examples/`: Runnable reference projects demonstrating real-world configurations.
 - `.github/workflows/`: Advanced CI/CD pipelines governing the project lifecycle, built around reusable workflow templates.
 
 ## Advanced Usage
 
-Please check the [`examples/`](examples/) directory for advanced examples and configurations.
+Please check the [`examples/`](https://github.com/markurtz/disdantic/tree/main/examples/) directory for advanced examples and configurations.
 
 ## General
 
 ### Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for more details. For development setup, check out [DEVELOPING.md](DEVELOPING.md).
-Please ensure you follow our [Code of Conduct](CODE_OF_CONDUCT.md) in all interactions.
+We welcome contributions! Please see our [Contributing Guide](https://github.com/markurtz/disdantic/blob/main/CONTRIBUTING.md) for more details. For development setup, check out [DEVELOPING.md](https://github.com/markurtz/disdantic/blob/main/DEVELOPING.md).
+Please ensure you follow our [Code of Conduct](https://github.com/markurtz/disdantic/blob/main/CODE_OF_CONDUCT.md) in all interactions.
 
 ### Support and Security
 
-- For help and general questions, see [SUPPORT.md](SUPPORT.md).
-- To report a security vulnerability, please refer to our [Security Policy](SECURITY.md).
+- For help and general questions, see [SUPPORT.md](https://github.com/markurtz/disdantic/blob/main/SUPPORT.md).
+- To report a security vulnerability, please refer to our [Security Policy](https://github.com/markurtz/disdantic/blob/main/SECURITY.md).
 
 ### AI & LLM Tooling
 
 This repository includes first-class support for agentic and LLM-assisted development workflows:
 
-- **[AGENTS.md](AGENTS.md):** Repository-specific instructions for AI coding agents (Codex, Copilot Workspace, Gemini, Claude, Cursor, and similar tools). Contains the authoritative guide for project structure, executable commands, code style, and critical constraints.
-- **[llms.txt](llms.txt):** A machine-readable index of the project's documentation, following the [llms.txt specification](https://llmstxt.org/). Served at `/llms.txt` on the documentation site to help LLMs quickly locate and consume relevant content.
+- **[AGENTS.md](https://github.com/markurtz/disdantic/blob/main/AGENTS.md):** Repository-specific instructions for AI coding agents (Codex, Copilot Workspace, Gemini, Claude, Cursor, and similar tools). Contains the authoritative guide for project structure, executable commands, code style, and critical constraints.
+- **[llms.txt](https://github.com/markurtz/disdantic/blob/main/llms.txt):** A machine-readable index of the project's documentation, following the [llms.txt specification](https://llmstxt.org/). Served at `/llms.txt` on the documentation site to help LLMs quickly locate and consume relevant content.
 
 ### License
 
-This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0. See the [LICENSE](https://github.com/markurtz/disdantic/blob/main/LICENSE) file for details.
 
 ### Citations
 
-If you use this template or the resulting software in your research, please cite it using the following BibTeX entry:
+If you use this repository or the resulting software in your research, please cite it using the following BibTeX entry:
 
 ```bibtex
-@software{template-python,
+@software{disdantic,
   author = {markurtz},
-  title = {template-python},
-  year = {{year}},
-  url = {https://github.com/markurtz/template-python}
+  title = {disdantic},
+  year = 2026,
+  url = {https://github.com/markurtz/disdantic}
 }
 ```
 
 
 ## File: AGENTS.md
 
+
+<!--
+Copyright 2026 markurtz
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 # AGENTS.md — AI Agent & Coding Assistant Guide
 
-> **This file provides repository-specific instructions to AI coding agents** (e.g., OpenAI Codex, GitHub Copilot, Gemini, Claude, Cursor).
-> Human contributors should refer to [DEVELOPING.md](DEVELOPING.md).
+This file provides repository-specific context, setup instructions, executable commands, and security boundaries for AI coding assistants.
 
-## Project Context
+## System Overview
 
-**`template-python`** is a production-ready Apache 2.0 template repository for bootstrapping modern software projects.
-**Primary language:** `Python 3.10+`\
-**Package manager:** `Hatch`
+`disdantic` is a lightweight collection of utilities and mixins for Pydantic. disdantic simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate.
 
-## Critical Constraints
+- **Primary Languages:** Python 3.10+
+- **Configuration & Build Backend:** Hatch
+- **Key Dependencies:** Loguru, Pydantic / Pydantic-Settings v2, Typer, Opentelemetry
 
-> [!CAUTION]
->
-> 1. **Never commit secrets.** Do not add API keys, tokens, or credentials anywhere.
-> 1. **Do not modify `LICENSE` or `NOTICE`.** These are legally binding.
-> 1. **Do not modify workflow trigger conditions** without human review.
-> 1. **All new source files must include the Apache 2.0 copyright header.**
-> 1. **Use `{{double_braces}}` for template placeholders.** Never hard-code them.
+## Core Directories & Architecture
 
-## Repository Layout
+- `src/disdantic/`: Python interface and orchestrator client.
+  - `__main__.py`: CLI entrypoint (subcommands: `diagnose`, `setup`).
+  - `settings.py`: Pydantic settings schema for project options.
+  - `client.py`: Process client wrapper.
+  - `logging.py`: Loguru logging and telemetry hooks.
+- `tests/`: Organized into `python/unit/` (isolated logic), `python/integration/` (subsystem interactions), and `e2e/` (orchestrator black-box integration).
+- `docs/`: MkDocs Material documentation source using Zensical.
+- `.github/workflows/`: CI/CD workflows.
 
-- `.github/workflows/`: CI/CD pipelines. Files prefixed with `_` are reusable templates.
-- `docs/`: MkDocs Material source.
-- `src/`: Primary application source code.
-- `tests/`: Organized into `unit/`, `integration/`, and `e2e/`.
+## Environment & Developer Workflows
 
-## Executable Commands
+This project is configured to run using Hatch environments. Use the local `.venv` for all executions as instructed by the user.
 
-- **Linting:** `hatch run lint:check` (Ruff & mdformat) and `hatch run types:check` (Mypy)
-- **Pre-commit:** `pre-commit run --all-files` (Runs formatting and quality checks)
-- **Testing:** `hatch run test:all` (Pytest) and `hatch run test:all-cov` (Coverage)
-- **Docs:** `hatch run docs:serve` / `hatch run docs:build`
-- **Build:** `hatch build`
+### 1. Setup & Bootstrapping
 
-## Code Style & Patterns
+Activate the environment and initialize Hatch:
 
-- **No magic strings or numbers** — define constants.
-- **Prefer explicit over implicit.**
-- **One responsibility per module.**
-- Every public function, class, and module must have a docstring.
-- Follow [Conventional Commits](https://www.conventionalcommits.org/).
+```bash
+# Set up/update dependencies via Hatch inside virtualenv wrapper
+.venv/bin/hatch env create
+```
 
-## GitHub Actions Workflows
+### 2. Testing Pipeline
 
-- **Reusable Templates (`_*.yml`):** Never trigger directly. Ensure changes are backward-compatible.
-- **Lifecycle:**
-  - `development.yml`: PR open/sync (unit + smoke)
-  - `main.yml`: Push to `main` (unit + integration + sanity)
-  - `nightly.yml`, `weekly.yml`, `release.yml`: Standard scheduled/release flows.
+Tests are tiered across languages. Run targeted tests or full suite:
 
-## Documentation
+```bash
+# Run all Python functional tests (unit + integration)
+.venv/bin/hatch run python:tests-func
 
-- **`docs/`** and **`mkdocs.yml`** control the site. Do not create docs outside the `nav:` tree.
-- `docs/index.md` dynamically includes `README.md` via MkDocs snippets.
-- Use `{{placeholder}}` variables for templated fields (e.g., `template-python`, `markurtz`).
+# Run Python unit tests only
+.venv/bin/hatch run python:tests-unit
 
-## Agent Notes
+# Run Python integration tests only
+.venv/bin/hatch run python:tests-int
 
-_Add notes here when updating instructions for AI agents._
+# Run OCI Container Structure Tests (CST)
+.venv/bin/hatch run oci:tests
+
+# Run E2E tests (builds dist wheel and installs it first)
+.venv/bin/hatch run project:tests-e2e
+
+# Run all tests with coverage reports
+.venv/bin/hatch run tests-cov
+```
+
+### 3. Code Quality, Formatting & Types
+
+Run formatting and quality gates before committing:
+
+```bash
+# Auto-format Python and project configuration files
+.venv/bin/hatch run python:format
+.venv/bin/hatch run project:format
+
+# Run lint checks (Ruff, mdformat, yamlfix, taplo)
+.venv/bin/hatch run python:lint
+.venv/bin/hatch run project:lint
+
+# Run static type checks (Mypy via Ty for Python)
+.venv/bin/hatch run python:types
+```
+
+### 4. Documentation & Packaging
+
+```bash
+# Build and serve docs locally (http://127.0.0.1:8000)
+.venv/bin/hatch run project:docs-serve
+
+# Build package distributions (sdist and wheel)
+.venv/bin/hatch build
+```
+
+## Security & Behavior Boundaries
+
+To maintain project integrity and security, agents must strictly adhere to the following rules:
+
+### 1. Secrets & Credentials
+
+- **Never commit secrets:** Never add API keys, tokens, or credentials anywhere.
+- Run security audits using: `.venv/bin/hatch run project:security`.
+
+### 2. Critical Files & CI Guardrails
+
+- **Do not modify `LICENSE` or `NOTICE`.**
+- **Do not modify GitHub Actions workflow triggers or steps** (in `.github/`) without explicit human review.
+- **Apache 2.0 copyright header:** Every new source file (Python) must begin with the standard Apache 2.0 copyright and license notice.
+
+### 3. Execution Constraints
+
+- Always use tools installed in the `.venv` (e.g. `.venv/bin/hatch`, `.venv/bin/pytest`).
+- Avoid global packages or running unverified external binaries.
+- Do not add new external dependencies to `pyproject.toml` without verifying compatibility with Python 3.10+.
+
+
+## File: CLAUDE.md
+
+
+<!--
+Copyright 2026 markurtz
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+Refer to [AGENTS.md](AGENTS.md) for build, testing, quality controls, and agent instructions.
 
 
 ## File: DEVELOPING.md
 
-# Developing `template-python`
+
+<!--
+Copyright 2026 markurtz
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+# Developing `disdantic`
 
 This guide provides instructions for setting up your development environment, navigating the project structure, and adhering to our coding standards.
 
-## Prerequisites
+## Setup & Prerequisites
 
-Ensure your system meets the following requirements before getting started:
+Ensure your system meets the requirements below to establish a consistent local development environment, or utilize our containerized development setup.
 
-- **[Docker](https://docs.docker.com/get-docker/)** (Recommended for isolated environments)
-- **[Git](https://git-scm.com/)** (Version control)
-- **[Python](https://www.python.org/)** 3.10+
-- **[Hatch](https://hatch.pypa.io/)** (Project manager)
+### Supported Operating Systems
 
-> [!NOTE]
-> We strongly recommend using our Docker setup to ensure your local environment exactly matches our CI/CD pipelines.
+- **macOS & Linux**: Standard operating systems that are fully supported, actively tested, and maintained.
+- **Windows**: Not officially tested or maintained. Windows users encountering issues should use the [Development Environment Container](#development-environment-container-devcontainer) setup.
 
-## Quick Start (Docker)
+### Development Environment Container (.devcontainer)
 
-> [!IMPORTANT]
-> The `Dockerfile` and `docker-compose.yml` files included in this template are **placeholders** that must be filled in for your specific language stack before they are usable. The default `CMD` in both files will exit with an error if run without modification.
->
-> Once implemented, you can spin up the development environment with:
->
-> ```bash
-> git clone https://github.com/markurtz/template-python.git
-> cd template-python
->
-> # Build and start the development environment in the background
-> docker-compose up -d --build
-> ```
-
-To view the logs of your running containers:
-
-```bash
-docker-compose logs -f
-```
-
-## Local Setup
-
-If you prefer to develop directly on your host machine, this project uses [uv](https://docs.astral.sh/uv/) for environment management and dependency resolution, alongside [Hatch](https://hatch.pypa.io/) as our command orchestrator.
+- **Requirements**: [Docker Desktop](https://www.docker.com/products/docker-desktop/) and [VS Code](https://code.visualstudio.com/) with the **[Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers)** extension installed.
+- **Usage**:
+  1. Clone this repository: `git clone https://github.com/markurtz/disdantic.git`
+  1. Open the project folder in VS Code.
+  1. A prompt will appear: "Reopen in Container". Click it to launch the environment.
+  1. VS Code will build the container, automatically run `uv sync --all-groups --all-extras` to install and sync the Python environment.
 
 > [!NOTE]
-> **A note on shared tooling:** This project uses [MkDocs](https://www.mkdocs.org/) for documentation.
+> **Local `.venv` vs. Hatch Environments**:
+> The `uv sync` command creates a local `.venv` in the project root solely to provide VS Code extensions (like [Pylance](https://github.com/microsoft/pylance-release) and [Ruff](https://astral.sh/ruff)) with a standard environment for editor autocomplete, hover information, and in-editor diagnostics. All command-line and automated task execution (formatting, linting, testing, building) is managed via **[Hatch](https://hatch.pypa.io/)** isolated environments (`hatch run ...`). Do not activate or modify this root `.venv` directly for running tasks.
 
-```bash
-# 1. Install uv and hatch globally (if not already installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-uv tool install hatch
+### Local Setup
 
-# 2. Optionally, set up a Python virtual environment
-uv venv
-source .venv/bin/activate
-
-# 3. Sync the development environment (installs all dependency groups and extras)
-uv sync --all-groups --all-extras
-
-# 4. Run hatch commands directly
-hatch run test:all
-hatch run lint:check
-```
-
-### Managing Dependencies
-
-Use `uv` to add or update dependencies efficiently:
-
-```bash
-# Add a general dependency
-uv add <package>
-
-# Add a development dependency
-uv add --group dev <package>
-
-# Add to a specific extra
-uv add <package> --optional <extra_name>
-
-# Sync targeted groups or extras
-uv sync --group dev
-uv sync --extra <extra_name>
-```
-
-## Running Tests
-
-We maintain strict testing standards. Our tests are located in the `tests/` directory and are categorized by tier.
-
-| Test Tier       | Directory            | Description                                                        |
-| :-------------- | :------------------- | :----------------------------------------------------------------- |
-| **Unit**        | `tests/unit/`        | Fast, isolated tests for individual functions and classes.         |
-| **Integration** | `tests/integration/` | Slower tests that verify interactions between multiple components. |
-| **End-to-End**  | `tests/e2e/`         | Full-stack tests simulating real user workflows.                   |
-
-Replace the commands below with those appropriate for your language stack:
-
-```bash
-# Run unit tests
-hatch run test:unit
-
-# Run integration tests
-hatch run test:integration
-
-# Run all tests with coverage
-hatch run test:all-cov
-```
-
-## Code Quality and Formatting
-
-We use opinionated formatters and linters to maintain consistency: Ruff for linting/formatting and Mypy for static type checking.
-
-- **Formatters & Linters:**
+- **[Git](https://git-scm.com/)**: Version control tool. Refer to the [Git Documentation](https://git-scm.com/doc) for installation instructions.
+- **[Docker](https://www.docker.com/)**: Container management system. Install via the [Docker Installation Guide](https://docs.docker.com/get-docker/).
+- **[Python](https://www.python.org/) 3.10 - 3.14**: Core runtime environment. Install via the [Python Downloads Page](https://www.python.org/downloads/).
+- **[uv](https://docs.astral.sh/uv/)**: Fast package installer and resolver. Install via the [uv installation guide](https://docs.astral.sh/uv/getting-started/installation/).
+- **[Hatch](https://hatch.pypa.io/)**: Project workflow orchestrator. Install via the [Hatch installation guide](https://hatch.pypa.io/latest/install/). If you have `uv` installed, we recommend installing Hatch cleanly as a tool using:
   ```bash
-  # Check for linting and formatting issues
-  hatch run lint:check
-  hatch run types:check
-
-  # Auto-format code
-  hatch run lint:format
+  uv tool install hatch
   ```
+  to avoid polluting your global system packages.
 
 > [!TIP]
-> **IDE Configuration:** We highly recommend configuring your editor (e.g., VSCode, IntelliJ) to format on save using the project's formatting tools. For VSCode, ensure you have the relevant extensions installed and check `.vscode/settings.json` if available.
+> **Editor Autocomplete Setup (Local)**:
+> For local development outside of the Dev Container, if you want your editor (VS Code, [PyCharm](https://www.jetbrains.com/pycharm/), etc.) to resolve imports and provide autocomplete/diagnostics, run `uv sync --all-groups --all-extras` once to create the local `.venv`.
 
-### Pre-commit Hooks
+## Developer Quickstart
 
-We use [pre-commit](https://pre-commit.com/) to ensure code quality standards are met before changes are committed. This repository is configured to use our existing Hatch environments for these checks, guaranteeing consistency with CI/CD pipelines.
+Once your environment is set up (either via the Dev Container or manually), follow this consolidated workflow for a standard development cycle:
 
-**Setup:**
+- **Branch & Code**: Create your feature branch and make changes:
+  ```bash
+  git checkout -b feat/my-contribution
+  ```
+- **Quality Assurance (Unified)**: Automatically format code, lint, type check, and run security scans across all environments:
+  ```bash
+  hatch run all:quality
+  ```
+  *(Alternatively, you can run individual checks if preferred: `hatch run all:format`, `hatch run all:lint`, `hatch run all:types`, or `hatch run all:security`)*
+- **Test (Unified)**: Run all unit, integration, and E2E tests with coverage:
+  ```bash
+  hatch run all:tests-cov
+  ```
+  *(For running tests without coverage: `hatch run all:tests`)*
+- **Build (Unified)**: Compile package artifacts (source & wheels) and build the OCI container image *(requires Docker daemon to be running for the OCI phase)*:
+  ```bash
+  hatch run all:build
+  ```
+  *(To build only the Python wheel locally: `hatch build`)*
+- **Serve Documentation**: Serve documentation locally (this automatically builds the site):
+  ```bash
+  hatch run all:docs-serve
+  ```
+- **Push**: Push your changes to open a Pull Request:
+  ```bash
+  git push -u origin feat/my-contribution
+  ```
 
-1. Install pre-commit globally or in your local virtual environment:
+## Hatch Development Environments Overview
 
-   ```bash
-   uv pip install pre-commit
-   ```
+Our build, verification, and execution pipelines are partitioned into target-specific environments using Hatch. This ensures isolation, prevents dependency bloat, and standardizes workflows:
 
-1. Install the git hook scripts:
+- **`default`**: The base environment template. It configures shared environment variables (such as target paths, directory structures, and script file paths) and installs the core dependency groups.
+- **`all`**: The orchestrator environment. It defines cascading workflows to run formatting, linting, typing, security scanning, testing, and documentation generation across all components sequentially or concurrently.
+- **`python`**: Encompasses Python-specific verification tools including [Ruff](https://astral.sh/ruff) for linting/formatting, [Ty](https://github.com/astral-sh/ty) for type-checking, [Pytest](https://docs.pytest.org/) for testing, and [Typer](https://typer.tiangolo.com/) for CLI documentation generation.
+- **`oci`**: Manages OCI container builds (`docker build`), compose verification (`docker compose config`), linting ([hadolint](https://github.com/hadolint/hadolint)), security auditing ([trivy](https://trivy.dev/), [dockle](https://github.com/goodwithtech/dockle)), and container structure tests ([cstest](https://github.com/GoogleContainerTools/container-structure-test)).
+- **`project`**: Targets repository-wide configuration and file standards, including Markdown formatting (`[mdformat](https://github.com/executablebooks/mdformat)`), configuration checkouts (`[yamlfix](https://github.com/lyz-code/yamlfix)`, `[yamllint](https://github.com/adrienverge/yamllint)`, `[taplo](https://taplo.tamasfe.dev/)`), security baselines (`[detect-secrets](https://github.com/Yelp/detect-secrets)`, `[checkov](https://www.checkov.io/)`), link checkers, and site compilation (using the **[Zensical](https://zensical.org)** static site generator/documentation compiler).
 
-   ```bash
-   pre-commit install
-   ```
+## Coding Workflows
 
-**Usage:**
-
-Once installed, pre-commit will automatically run on the modified files whenever you commit. To run the hooks manually on all files:
-
-```bash
-pre-commit run --all-files
-```
-
-## Git Workflow & Branching
-
-We follow a structured branching strategy to maintain a clean git history.
-
-1. **Branch Naming:**
-
-   - Feature branches: `feature/short-description`
-   - Bug fixes: `bugfix/short-description`
-   - Documentation: `docs/short-description`
-
-1. **Commit Messages:**
-   We encourage following [Conventional Commits](https://www.conventionalcommits.org/).
-
-   - `feat: add new user endpoint`
-   - `fix: resolve crash on startup`
-   - `docs: update developing guide`
-
-1. **Pull Requests:**
-
-   - Push your branch to the remote repository.
-   - Open a Pull Request against the `main` branch.
-   - Ensure all CI checks (tests, linters) pass.
-   - Request a review from at least one core maintainer.
-
-## CI/CD Architecture
-
-This repository uses a modular, standardized GitHub Actions architecture. Workflows are divided into core lifecycle events and reusable helper templates.
-
-### Lifecycle Workflows
-
-| Workflow                            | Trigger                | Purpose                                                                                                                       |
-| :---------------------------------- | :--------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
-| **Development** (`development.yml`) | Pull Request to `main` | Runs quality gates, security audits, unit/integration tests, and builds documentation previews. Blocks merges if checks fail. |
-| **Main** (`main.yml`)               | Push to `main`         | Post-merge validation. Runs unit/integration/e2e tests, quality/security checks, and updates the `latest` documentation.      |
-| **Nightly** (`nightly.yml`)         | Cron (Daily 00:00 UTC) | Runs extended regression tests, alpha builds, nightly documentation deployment, and deeper security analysis.                 |
-| **Release** (`release.yml`)         | Push of `v*.*.*` tag   | Performs full verification, builds immutable release packages, versioned documentation, and publishes artifacts.              |
-| **Weekly** (`weekly.yml`)           | Cron (Sun 00:00 UTC)   | Conducts dependency hygiene and full test suite regression to catch configuration drift.                                      |
-
-### PR Feedback & Cleanup
-
-- **Safe PR Commenting:** The `pr_comment.yml` workflow uses `workflow_run` to securely post CI status comments on pull requests, circumventing write permission limits on forks.
-- **Environment Cleanup:** When a PR is closed or merged, `development_cleanup.yml` automatically removes ephemeral documentation environments and artifacts to maintain a clean workspace.
-
-### Reusable Templates
-
-Our pipelines rely on modular templates located in `.github/workflows/_*.yml` (e.g., `_tests.yml`, `_quality.yml`, `_docs.yml`, `_security.yml`, `_build_package.yml`). This ensures testing granularity and linting rules remain perfectly consistent across all stages of the software lifecycle.
-
-## Building Documentation
-
-Our documentation is built using [MkDocs Material](https://squidfunk.github.io/mkdocs-material/). To preview documentation changes locally:
+All development commands are unified under [pyproject.toml](./pyproject.toml) and managed using Hatch. The commands are generally invoked using the format:
 
 ```bash
-# Hatch manages the isolated docs environment
-# Serve documentation on http://127.0.0.1:8000 with hot-reload
-hatch run docs:serve
+hatch run [ENVIRONMENT]:[SCRIPT]
 ```
 
-For further assistance, please refer to our [SUPPORT.md](SUPPORT.md).
+For orchestrating tasks across all environments, use the `all` environment scripts:
+
+```bash
+hatch run all:[SCRIPT]
+```
+
+### Quality Assurance & Static Analysis
+
+This workflow enforces code quality, style conventions, static type correctness, and security policies across all codebase layers.
+
+> [!TIP]
+> **Unified Quality Check**:
+> You can run all formatting, linting, type-checking, and security scans across all environments in a single command using the unified quality check:
+>
+> ```bash
+> hatch run all:quality
+> ```
+
+| Environment            | Formatting Command         | Linting Command          | Type-Checking Command        | Security Auditing Command    |
+| :--------------------- | :------------------------- | :----------------------- | :--------------------------- | :--------------------------- |
+| **All / Orchestrator** | `hatch run all:format`     | `hatch run all:lint`     | `hatch run all:types`        | `hatch run all:security`     |
+| **Python**             | `hatch run python:format`  | `hatch run python:lint`  | `hatch run python:types`     | `hatch run python:security`  |
+| **OCI**                | `hatch run oci:format`     | `hatch run oci:lint`     | `hatch run oci:types` \*     | `hatch run oci:security`     |
+| **Project**            | `hatch run project:format` | `hatch run project:lint` | `hatch run project:types` \* | `hatch run project:security` |
+
+*\* Note: Type checking is not applicable for OCI and Project environments; executing these commands will output an information message.*
+
+#### Code Formatting
+
+- **Tools / Methodology / Rationale**:
+  - **Python**: Uses `[ruff](https://astral.sh/ruff)` to automatically check/fix imports and format code layout. This delivers high-performance style standardization.
+    - **OCI**: Uses `[dclint](https://github.com/zavoloklom/docker-compose-linter)` (via a helper script) to auto-format Docker Compose files. While `dclint` is primarily a compose linter, the format step (`hatch run oci:format`) executes it with the `--fix` flag to automatically correct lint errors and standard style issues in place. (Dockerfile linting/validation is handled separately by `[hadolint](https://github.com/hadolint/hadolint)`).
+  - **Project**: Employs `[mdformat](https://github.com/executablebooks/mdformat)` for Markdown, `[yamlfix](https://github.com/lyz-code/yamlfix)` for YAML files, and `[taplo](https://taplo.tamasfe.dev/)` for TOML file formatting to maintain a uniform structure for all configuration and documentation files.
+- **Expected Outputs & Locations**:
+  - In-place modifications applied directly to the files targeted by the respective environment variables: `PYTHON_TARGETS`, `MDFORMAT_TARGETS` (Markdown targets), `YAML_TARGETS`, and `TOML_TARGETS`.
+
+#### Linting & Verification
+
+- **Tools / Methodology / Rationale**:
+  - **Python**: Runs `[ruff](https://astral.sh/ruff) check` and `[ruff](https://astral.sh/ruff) format --check` to verify compliance with PEP 8 and project style guidelines without modifying files.
+    - **OCI**: Uses `[hadolint](https://github.com/hadolint/hadolint)` to validate Dockerfile syntax and standard practices, and runs `docker compose config` to verify the syntactic and semantic validity of compose files.
+  - **Project**: Runs `[mdformat](https://github.com/executablebooks/mdformat) --check` to check Markdown formatting, `[yamlfix](https://github.com/lyz-code/yamlfix) --check` and `[yamllint](https://github.com/adrienverge/yamllint)` for YAML files, and `[taplo](https://taplo.tamasfe.dev/) check` for TOML configuration syntax.
+- **Expected Outputs & Locations**:
+  - Summary reports, warnings, and errors output directly to the terminal stdout/stderr. Standard exit codes (non-zero on failures) are used to gate CI pipelines.
+
+#### Static Type Checking
+
+- **Tools / Methodology / Rationale**:
+  - **Python**: Employs Astral's `[ty check](https://github.com/astral-sh/ty)` frontend to statically analyze and verify Python type annotations.
+  - **Expected Outputs & Locations**:
+  - Type checker error listings and tracebacks are printed to the terminal console.
+
+#### Security & Vulnerability Auditing
+
+- **Tools / Methodology / Rationale**:
+  - **Python**: Employs `[semgrep](https://semgrep.dev/)` for semantic pattern matching, `[pip-audit](https://github.com/pypa/pip-audit)` to detect known vulnerabilities in Python packages, and `[ruff](https://astral.sh/ruff) check --select S` to check for security vulnerabilities.
+    - **OCI**: Scans built containers using `[dockle](https://github.com/goodwithtech/dockle)` (verifies image best practices/secrets) and `[trivy](https://trivy.dev/)` (scans OS-level packages for CVEs).
+  - **Project**: Employs `[detect-secrets](https://github.com/Yelp/detect-secrets)` to scan for accidentally committed secrets against a baseline, and `[checkov](https://www.checkov.io/)` to scan infrastructure-as-code files and development configurations.
+- **Expected Outputs & Locations**:
+  - Standard reports output to the console.
+  - Project environment updates and validates the secrets baseline file located at `.detect-secrets.scan.json`. Run `hatch run project:security-update` to update this baseline file.
+
+### Testing Strategy & Suites
+
+Our testing strategy is split into component-level, integration-level, and system-level suites, each of which supports code coverage reporting.
+
+#### Coverage Configurations & Directories
+
+Code coverage runs collect data during test executions and format them into human-readable Markdown summaries.
+
+- **Python Coverage**: Configured to output to `coverage/python/` (`PYTHON_COV_DIR`). The test suites automatically output terminal reports and compile Markdown reports (e.g., `coverage_tests-unit.md`).
+
+| Test Suite                 | Python Command                    | OCI Command                   | Project Command                     | All Command                   |
+| :------------------------- | :-------------------------------- | :---------------------------- | :---------------------------------- | :---------------------------- |
+| **All Local Tests**        | N/A                               | N/A                           | N/A                                 | `hatch run all:tests`         |
+| **All Tests + Coverage**   | N/A                               | N/A                           | N/A                                 | `hatch run all:tests-cov`     |
+| **Functional Tests**       | `hatch run python:tests-func`     | N/A                           | `hatch run all:tests-func`          |                               |
+| **Func Tests + Coverage**  | `hatch run python:tests-func-cov` | N/A                           | `hatch run all:tests-func-cov`      |                               |
+| **Unit Tests**             | `hatch run python:tests-unit`     | N/A                           | `hatch run all:tests-unit`          |                               |
+| **Unit Tests + Coverage**  | `hatch run python:tests-unit-cov` | N/A                           | `hatch run all:tests-unit-cov`      |                               |
+| **Integration Tests**      | `hatch run python:tests-int`      | `hatch run project:tests-int` | `hatch run all:tests-int`           |                               |
+| **Int Tests + Coverage**   | `hatch run python:tests-int-cov`  | N/A                           | `hatch run all:tests-int-cov`       |                               |
+| **End-to-End Tests**       | `hatch run python:tests-e2e`      | `hatch run oci:tests-e2e`     | `hatch run project:tests-e2e`       | `hatch run all:tests-e2e`     |
+| **E2E Tests + Coverage**   | `hatch run python:tests-e2e-cov`  | `hatch run oci:tests-e2e-cov` | `hatch run project:tests-e2e-cov`   | `hatch run all:tests-e2e-cov` |
+| **Link Checks**            | N/A                               | N/A                           | `hatch run project:link-checks`     | N/A                           |
+| **Link Checks + Coverage** | N/A                               | N/A                           | `hatch run project:link-checks-cov` | N/A                           |
+
+*\* Note: While Hatch commands for `N/A` cells can technically be run (and will print a message stating that the test suite is not defined for that environment), they have no logical test targets or execution paths. They are marked `N/A` for clarity.*
+
+#### Test Suites Breakdown
+
+#### Full Suite (`tests` / `tests-cov`)
+
+- **Methodology & Rationale**: Executes all local functional and E2E tests across all environments to ensure complete validation of the codebase before code integration.
+- **Expected Outputs & Locations**: Unified console log output, combined test summaries, and all coverage Markdown files compiled under `coverage/python/`.
+
+#### Functional Testing (`tests-func` / `tests-func-cov`)
+
+- **Methodology & Rationale**: Executes both unit and integration tests under the targeted environment to verify logical flows and subsystem communication.
+- **Expected Outputs & Locations**:
+  - **Python**: Outputs to console and `coverage/python/coverage_tests-func.md`.
+
+#### Unit Testing (`tests-unit` / `tests-unit-cov`)
+
+- **Methodology & Rationale**:
+  - **Python**: Runs isolated tests under `tests/python/unit` via `pytest`. Focuses on validating individual modules and class behaviors.
+- **Expected Outputs & Locations**:
+  - **Python**: Outputs `coverage/python/coverage_tests-unit.md`.
+
+#### Integration Testing (`tests-int` / `tests-int-cov`)
+
+- **Methodology & Rationale**:
+  - **Python**: Runs tests under `tests/python/integration` via `pytest` to verify interactions between Python modules.
+  - **Project**: Runs documentation code block tests. It utilizes `scripts/generate_doc_tests.py` to parse Markdown files and compile code block assertions under `.tests/docs` (`DOC_TESTS_PATH`), which are then executed using `pytest`.
+- **Expected Outputs & Locations**:
+  - **Python**: Outputs `coverage/python/coverage_tests-int.md`.
+  - **Project**: Verifies doc tests compile and pass; outputs progress to stdout.
+
+#### End-to-End Testing (`tests-e2e` / `tests-e2e-cov`)
+
+- **Methodology & Rationale**:
+  - **Python**: Compiles Python packages with `hatch build`, force reinstalls them via `pip`, and runs pytest against `tests/e2e` (`E2E_TESTS`) to verify CLI commands and package distribution paths in a black-box environment.
+  - **OCI**: Builds the OCI image and executes Google's Container Structure Tests (`cstest` via `scripts/run_oci.py`) to confirm that the image metadata, file layouts, and execution endpoints conform to specifications.
+  - **Project**: Runs automated tests across the `examples/` directory using pytest to verify real-world integrations.
+- **Expected Outputs & Locations**:
+  - **Python**: Outputs `coverage/python/coverage_tests-e2e.md`.
+  - **OCI**: Outputs Container Structure Test results to the console.
+  - **Project**: Outputs example test execution summaries to the console.
+
+#### Link Checking (`link-checks` / `link-checks-cov`)
+
+- **Methodology & Rationale**:
+  - **Project**: Executes `scripts/check_links.py` to recursively crawl project documents (`MDFORMAT_TARGETS`) and verify all internal/external links resolve successfully.
+- **Expected Outputs & Locations**:
+  - **Project**: Outputs link-checking validation summaries to the console.
+
+#### Test Categorization & Test Pathways
+
+To manage test execution speed and pipeline efficiency, every Python test is categorized into one of our three test pathways: **smoke**, **sanity**, or **regression**. These pathways directly govern how frequently and in which environments those tests are executed in CI/CD pipelines.
+
+##### Pathway Specification & Filtering
+
+A test's pathway can be specified and detected in one of two ways:
+
+1. **By Marker**: Decorating the test function or class with a custom pytest marker (e.g., `@pytest.mark.smoke`, `@pytest.mark.sanity`, `@pytest.mark.regression`).
+1. **By Name**: Including the pathway name in the test function or class name (e.g., `def test_smoke_initialization()`, `class TestSanityCore`, `def test_regression_bug_fix()`).
+
+##### Test Pathways Breakdown
+
+- **`smoke`**:
+  - **Encapsulation & Scope**: Extremely fast, non-flaky, critical-path verification checks. These confirm that the fundamental, basic logic of the application functions correctly (e.g., orchestrator bootstrap, CLI command recognition).
+  - **Execution Frequency**: Run on **every commit and Pull Request** (e.g., `development.yml`) as a quick health gate.
+- **`sanity`**:
+  - **Encapsulation & Scope**: Detailed, comprehensive tests of core system behaviors, APIs, and edge cases. These verify that the main business logic functions robustly but may take slightly longer than smoke tests.
+  - **Execution Frequency**: Run on **pushes to the main branch** (e.g., `main.yml`) and release branches to ensure overall stability of the codebase.
+- **`regression`**:
+  - **Encapsulation & Scope**: Deep, system-wide, and heavy integration/E2E regression verification checks. These ensure that complex interactions, edge cases, and past bugs do not reappear.
+  - **Execution Frequency**: Run on **nightly, weekly, and release schedule pipelines** due to their longer execution time.
+
+##### Default Pathway Execution
+
+If no specific filtering arguments, markers, or keyword flags are provided, pytest assumes a **regression** pathway by default.
+
+Running the test suite without any arguments executes a full regression run. This is because a default regression run executes:
+
+- All smoke tests
+- All sanity tests
+- All regression tests
+- Any tests not marked or named under a specific category
+
+##### Filtering Python Tests
+
+Hatch dynamically passes CLI arguments through to the underlying `pytest` execution via the `{args}` placeholder configured in [pyproject.toml](./pyproject.toml). To filter by test pathways (`smoke`, `sanity`, or `regression`), use pytest's keyword option (`-k`). This correctly matches both annotated markers and naming patterns (e.g., pathway keywords in the function or class name).
+
+- **Run only smoke tests**:
+  ```bash
+  hatch run python:tests-unit -k smoke
+  ```
+- **Run sanity and smoke tests**:
+  ```bash
+  hatch run python:tests-unit -k "sanity or smoke"
+  ```
+
+##### Testing a Specific Sub-Package or File
+
+Hatch environments make it easy to target a specific test directory, sub-package, or single file by appending the path to your `hatch run` command. The provided path will override the default directories configured in `pyproject.toml`.
+
+- **Run all tests in a specific file**:
+  ```bash
+  hatch run python:tests-unit tests/python/unit/test_settings.py
+  ```
+- **Run tests in a specific sub-package / directory**:
+  ```bash
+  hatch run python:tests-unit tests/python/unit/compat/
+  ```
+- **Run functional tests for a specific integration file**:
+  ```bash
+  hatch run python:tests-func tests/python/integration/test_utils.py
+  ```
+
+### Documentation Workflows
+
+Our documentation is managed as code. It includes auto-generated CLI references and a unified project site built using **[Zensical](https://zensical.org)**.
+
+> [!NOTE]
+> **Zensical Documentation Tool**:
+> [Zensical](https://zensical.org) is a static site generator and documentation compiler configured via `zensical.toml` that integrates [MkDocs](https://www.mkdocs.org/) and its plugin ecosystem (such as [mkdocstrings](https://github.com/mkdocstrings/mkdocstrings) and [macros](https://mkdocs-macros-plugin.readthedocs.io/)) under a simplified configuration structure.
+
+#### CLI Documentation Generation
+
+- **Tools / Methodology / Rationale**: Uses the `[typer](https://typer.tiangolo.com/)` utility to compile and output reference docs directly from the Python entrypoint `src/disdantic/__main__.py`.
+- **Command**: `hatch run python:docs`
+- **Expected Outputs & Locations**: A generated Markdown reference file at `.docs/cli.md`.
+
+#### Project Website Compilation
+
+- **Tools / Methodology / Rationale**: Compiles the final developer documentation site via **Zensical**, incorporating the general Markdown guides, Python CLI docs.
+- **Command**: `hatch run project:docs` (or `hatch run all:docs` to generate Python docs and compile project docs together)
+- **Expected Outputs & Locations**: Static build files compiled to the `site/` directory.
+
+> [!TIP]
+> **Dynamic Coverage Report Inclusion**:
+> When compiling the website locally, Zensical dynamically embeds the Python test coverage reports (extracted from `coverage/python/`) into the final reference pages (`docs/reference/python_coverage.md`). If the coverage reports have been generated locally, they will automatically be included in the compiled docs site.
+
+#### Live Development Preview Server
+
+- **Tools / Methodology / Rationale**: Launches a hot-reloading web server to preview changes locally in real-time.
+- **Command**:
+  - Local Project Server: `hatch run project:docs-serve`
+  - Global Orchestrator: `hatch run all:docs-serve`
+- **Expected Outputs & Locations**: Hot-reloading site hosted locally at `http://localhost:8000`.
+
+### Build & Distribution Workflows
+
+These workflows handle compiling code, bundling extension modules, and building containerized runtimes for distribution.
+
+#### Python Package Build
+
+- **Tools / Methodology / Rationale**: Uses Hatchling to bundle Python distribution packages.
+- **Command**: `hatch build`
+- **Expected Outputs & Locations**: Built source distributions and `.whl` files output to the `dist/` directory.
+
+#### OCI Container Image Build
+
+- **Tools / Methodology / Rationale**: Executes a Docker build to compile the multi-stage production image, tagging the result using metadata parameters.
+- **Command**: `hatch run oci:build`
+- **Expected Outputs & Locations**: Local Docker image compiled and tagged as `disdantic:latest` (configured via `{env:OCI_IMAGE}`).
+
+## CI/CD Workflows
+
+We maintain high quality gates using git workflows, automated reviews, and [GitHub Actions](https://github.com/features/actions) pipelines.
+
+### Version Control Standards
+
+- **Tools**: Git
+- **Workflow & Commands**:
+  - **Branching Model**: Standard branch prefixes are enforced:
+    - Features: `feature/short-description`
+    - Bugs: `bugfix/short-description`
+    - Docs: `docs/short-description`
+  - **Commit Messages**: Enforce [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `feat: ...`, `fix: ...`, `docs: ...`).
+  - **Versioning Tags**: Release tags must follow semver format (`v*.*.*`).
+
+### Repository Policy & Pull Requests
+
+- **Tools**: GitHub Pull Requests and Review tools
+- **Workflow & Commands**:
+  - Open a PR against the `main` branch.
+  - All pipeline checks must pass (Linting, static typing, security gates, unit/integration/e2e tests).
+  - Require review and approval from at least one core maintainer before merging.
+
+### GitHub Actions Architecture
+
+Our pipelines use a highly modular and DRY architecture to avoid duplication of setup steps:
+
+- **Tools**: [GitHub Actions](https://github.com/features/actions)
+
+- **Configuration / Manifest Files**: Reusable actions under `.github/actions/...` and triggers under `.github/workflows/...`
+
+- **Python Versioning & Parameters**:
+
+  - All composite actions (Python, OCI, and Project) support an optional `python-version` parameter.
+  - If omitted, actions standardize on the oldest supported version (default: `"3.10"`).
+  - All composite actions using change detection (`[dorny/paths-filter](https://github.com/dorny/paths-filter)`) support a `force-run` parameter (default: `"false"`). When set to `"true"`, it bypasses path-filtering check gates and executes the steps unconditionally (used in scheduled and release workflows).
+
+- **OCI Tools Native Execution**:
+
+  - The repository utilizes unified platform-agnostic OCI runner logic (`scripts/run_oci.py`).
+  - When running in CI under `.github/actions/oci/`, the actions natively install OCI scanning and linting tools (`[hadolint](https://github.com/hadolint/hadolint)`, `[dclint](https://github.com/zavoloklom/docker-compose-linter)`, `[dockle](https://github.com/goodwithtech/dockle)`, `[trivy](https://trivy.dev/)`, and `[container-structure-test](https://github.com/GoogleContainerTools/container-structure-test)`) on the runner.
+  - This native pre-installation ensures that `run_oci.py` executes these binaries directly on the host machine, bypassing the performance overhead and Docker socket mounting requirements of containerized container-in-container execution.
+
+  > [!WARNING]
+  > **Tool Version Drift Risk**:
+  > Running these tools natively in CI while developers run them locally via Docker fallback containers (e.g., `aquasec/trivy:latest`) can lead to version drift. To prevent the *"it passes locally but fails in CI"* issue:
+  >
+  > 1. Keep your system-installed binaries updated to match the versions used in CI workflows (defined in the OCI composite actions).
+  > 1. Periodically pull the latest container images locally (`docker pull aquasec/trivy:latest`) to keep Docker fallbacks in sync with CI runner environments.
+
+- **Utility Actions (`.github/actions/utility/...`)**:
+
+  - `setup-python`: Sets up Python, and installs uv and Hatch.
+
+- **Environment Actions (`.github/actions/[env]/...`)**:
+
+  - Partitioned into folders for each environment: `python`, `oci`, and `project`.
+  - Inside each environment, standard actions run specific scripts:
+    - `quality`: Runs formatting, linting, and type checking.
+    - `security`: Runs dependency audits, secrets checks, and security linters.
+    - `tests`: Runs unit, integration, and E2E tests, accepting `test-level`, `test-category`, and `generate-coverage` inputs.
+    - `build`: Compiles wheels (Python), container images (OCI), or all elements (Project).
+    - `publish`: Publishes release packages to [PyPI](https://pypi.org/) (Python) or container images to [GHCR](https://github.com/features/packages) (OCI).
+
+- **Workflows (`.github/workflows/...`)**: Triggered pipelines separated into:
+
+  - **Core Pipelines**:
+    - `pipeline-development.yml`: PR checks (quality, security, package build, tests, and documentation previews).
+    - `pipeline-main.yml`: Triggered on push to `main` branch (runs full checks and deploys latest docs).
+    - `pipeline-nightly.yml`: Nightly regression tests, vulnerability audits, and nightly releases.
+    - `pipeline-release.yml`: Release tag pushes (`v*.*.*`); packages binary builds, attests them, publishes to PyPI and GHCR, and creates releases.
+    - `pipeline-weekly.yml`: Scheduled weekly checks to verify environment health.
+  - **Utility Workflows**:
+    - `util-development-cleanup.yml`: Cleans up transient PR doc deployments.
+    - `util-pr-comment.yml`: Securely posts PR comments (build status, compiled coverage summary, documentation previews, and build packages) to avoid fork permission limits.
+
+### Local Workflow Testing with `act`
+
+You can test and validate [GitHub Actions](https://github.com/features/actions) workflows locally on your development machine using [nektos/act](https://github.com/nektos/act). This ensures that workflows run correctly before you push changes to GitHub.
+
+#### Prerequisites
+
+1. Install **[Docker](https://www.docker.com/)** (required by `act` to spin up runner containers).
+1. Install `act` using your package manager:
+   - macOS ([Homebrew](https://brew.sh/)): `brew install act`
+   - Linux (curl): `curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash`
+
+> [!IMPORTANT]
+> **Apple Silicon (M-series Chips) Emulation**:
+> If you are on an Apple Silicon Mac, you must specify the target execution architecture using `--container-architecture linux/amd64`. This ensures that `act` pulls the `amd64` container image and installs pre-compiled `x86_64` wheels (such as `taplo`), bypassing compile-from-source errors due to missing arm64 wheels.
+
+#### Running Workflows Locally
+
+Run `act` from the repository root:
+
+- **List all jobs**:
+  ```bash
+  act -l
+  ```
+- **Run the default (pull_request) event (runs Development Pipeline)**:
+  ```bash
+  act pull_request
+  ```
+- **Run a specific job (e.g., project-quality)**:
+  ```bash
+  act -j project-quality
+  ```
+- **Dry-run a workflow (displays steps without execution)**:
+  ```bash
+  act -n
+  ```
+
+#### Mocking Event Payloads (Change Detection)
+
+Because composite actions use `dorny/paths-filter` to detect path-level changes, running `act` directly will fail if the required event metadata is missing. You can provide a mock payload (`event.json`) to simulate the GitHub event context:
+
+1. Create an `event.json` in the root of the repository:
+   ```json
+   {
+     "repository": {
+       "default_branch": "main"
+     }
+   }
+   ```
+1. Pass the payload file using the `-e` flag:
+   ```bash
+   act push -W .github/workflows/pipeline-main.yml -j project-quality -e event.json --container-architecture linux/amd64
+   ```
+
+> [!NOTE]
+> `act` runs steps inside Docker containers that simulate GitHub environments. By default, it uses a medium-sized Ubuntu image, but you can specify a fuller image using `act -P ubuntu-latest=catthehacker/ubuntu:act-latest`.
+
+### Security & Code Scanning Gates
+
+- **Tools**: [detect-secrets](https://github.com/Yelp/detect-secrets) (secret scanning), [checkov](https://www.checkov.io/) (infrastructure auditing), [semgrep](https://semgrep.dev/) (semantic scanning), [pip-audit](https://github.com/pypa/pip-audit) (Python package audits), and [trivy](https://trivy.dev/) / [dockle](https://github.com/goodwithtech/dockle) (OCI image scanning).
+- **Workflow & Rationale**:
+  - **Secret Gating**: [detect-secrets](https://github.com/Yelp/detect-secrets) runs locally and in PR gates against the committed `.detect-secrets.scan.json` baseline to prevent credential leaks.
+  - **Static Analysis & CVE Auditing**: [Semgrep](https://semgrep.dev/), [Trivy](https://trivy.dev/), [Checkov](https://www.checkov.io/), [pip-audit](https://github.com/pypa/pip-audit) run automatically as background checks on every pull request to guarantee compliance with our security baseline.
+
+______________________________________________________________________
+
+For additional assistance, please refer to our [SUPPORT.md](SUPPORT.md).
 
 
 ## File: CONTRIBUTING.md
 
-# Contributing to template-python
 
-First off, thank you for considering contributing to `template-python`! It's people like you that make this project great.
+<!--
+Copyright 2026 markurtz
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+# Contributing to disdantic
+
+First off, thank you for considering contributing to `disdantic`! It's people like you that make this project great.
 
 ## Code of Conduct
 
@@ -472,13 +2265,13 @@ If you discover a security issue, please refer to our [Security Policy](SECURITY
 
 ## How Can I Contribute?
 
-There are many ways to contribute to `template-python`, and not all of them involve writing code:
+There are many ways to contribute to `disdantic`, and not all of them involve writing code:
 
 - **Reporting Bugs:** Help us improve by submitting detailed bug reports via our issue tracker.
 - **Suggesting Features:** Propose new features or enhancements that could benefit the project.
 - **Improving Documentation:** Fix typos, add examples, or write new guides.
 - **Writing Code:** Fix bugs, implement features, or improve performance.
-- **Helping Others:** Answer questions in [Discussions](https://github.com/markurtz/template-python/discussions) or issue comments.
+- **Helping Others:** Answer questions in [Discussions](https://github.com/markurtz/disdantic/discussions) or issue comments.
 
 For general questions and help, please see [SUPPORT.md](SUPPORT.md).
 
@@ -502,8 +2295,8 @@ Before you start coding, please refer to our [Development Guide](DEVELOPING.md) 
 
 ### 3. Making Changes
 
-1. **Fork the Repository:** Fork the `template-python` repository to your GitHub account.
-1. **Create a Branch:** Create a new branch from `main` for your work (e.g., `git checkout -b feat/add-new-feature`).
+1. **Fork the Repository:** Fork the `disdantic` repository to your GitHub account.
+1. **Create a Branch:** Create a new branch from `main` for your work (e.g., `git checkout -b feat/wasm-sandbox-support`).
 1. **Write Code:** Implement your changes, adhering to the project's coding standards.
 1. **Write Tests:** Add unit tests or integration tests for your changes to ensure stability.
 1. **Run Tests:** Ensure all tests and linters pass locally before committing.
@@ -511,38 +2304,52 @@ Before you start coding, please refer to our [Development Guide](DEVELOPING.md) 
 ### 4. Committing Your Changes
 
 - Write clear, concise commit messages.
-- We recommend using [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat: add support for X`, `fix: resolve issue with Y`).
-- If you are adding a new file, please include the appropriate Apache 2.0 copyright and license header at the top.
+- We recommend using [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat: add wasm sandbox support`, `fix: resolve memory leak in orchestrator`).
 
 ### 5. Submitting a Pull Request
 
-1. **Push your branch:** `git push origin your-branch-name`.
+1. **Push your branch:** `git push origin feat/wasm-sandbox-support`.
 1. **Open a Pull Request:** Open a PR against the `main` branch of the upstream repository.
-1. **Fill out the PR Template:** Provide a clear description of your changes, link to any relevant issues (e.g., `Closes #123`), and complete any required checklists.
+1. **Fill out the PR Template:** Provide a clear description of your changes, link to any relevant issues (e.g., `Closes #42`), and complete any required checklists.
 1. **Pass CI:** Ensure all GitHub Actions CI checks pass.
 1. **Review:** Address any feedback from the maintainers. Once approved and checks pass, a maintainer will merge your PR.
 
 ## Licensing
 
-By contributing to `template-python`, you agree that your contributions will be licensed under its [Apache 2.0 License](LICENSE).
+By contributing to `disdantic`, you agree that your contributions will be licensed under its [Apache 2.0 License](LICENSE).
 
 
 ## File: SECURITY.md
 
-# Security Policy for `template-python`
 
-We take the security of `template-python` seriously. This document outlines our security policies, supported versions, and how to responsibly disclose a vulnerability.
+<!--
+Copyright 2026 markurtz
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+# Security Policy for Disdantic
+
+We take the security of Disdantic seriously. This document outlines our security policies, supported versions, and how to responsibly disclose a vulnerability.
 
 ## Supported Versions
 
-Please check the table below for the versions of `template-python` that are currently being supported with security updates.
+Please check the table below for the versions of Disdantic that are currently being supported with security updates.
 
-| Version                         | Supported          |
-| :------------------------------ | :----------------- |
-| `{{current_major_version}}.x`   | :white_check_mark: |
-| `< {{current_major_version}}.0` | :x:                |
-
-*(Note: Replace the table contents with your actual versioning scheme once released.)*
+| Version   | Supported          |
+| :-------- | :----------------- |
+| `0.1.x`   | :white_check_mark: |
+| `< 0.1.0` | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -551,8 +2358,8 @@ Please check the table below for the versions of `template-python` that are curr
 
 If you discover a security vulnerability, please bring it to our attention right away using one of the following methods:
 
-1. **GitHub Security Advisories (Preferred):** Use the "Report a vulnerability" button on the **[Security tab](https://github.com/markurtz/template-python/security/advisories)** of this repository.
-1. **Email:** Send your report directly to **[INSERT EMAIL ADDRESS OR SECURITY CONTACT]**. *(Optional: Encrypt your email using our PGP key: [INSERT PGP KEY LINK/FINGERPRINT])*
+1. **GitHub Security Advisories (Preferred):** Use the "Report a vulnerability" button on the **[Security tab](https://github.com/markurtz/disdantic/security/advisories)** of this repository.
+1. **Direct Message:** Send a message directly to the maintainer's GitHub user account, **[markurtz](https://github.com/markurtz)**, if applicable or through other provided direct pathways for the user.
 
 ### What to Include in Your Report
 
@@ -562,7 +2369,7 @@ To help us resolve the issue quickly, please include the following information:
 - **Detailed description** of the vulnerability and its potential impact.
 - **Step-by-step instructions** to reproduce the issue.
 - **Proof of Concept (PoC)** code or screenshots, if available.
-- **Environment details** (e.g., version of `template-python`, OS, Python version, relevant configurations).
+- **Environment details** (e.g., version of Disdantic, OS, Python version, relevant configurations).
 
 ## Triage and Resolution Process
 
@@ -577,23 +2384,40 @@ We will handle your report with strict confidentiality. Our process is as follow
 
 **In Scope:**
 
-- Vulnerabilities within the core `template-python` codebase.
+- Vulnerabilities within the core Disdantic codebase.
 - Security issues resulting from our default configurations or execution paths.
 
 **Out of Scope:**
 
 - Theoretical issues without a reproducible PoC.
-- Vulnerabilities in third-party dependencies that are not exploitable through `template-python`.
-- Issues requiring the victim to intentionally clone and run `template-python` against a malicious, untrusted Git repository, unless it leads to unexpected system compromise beyond the expected permissions.
+- Vulnerabilities in third-party dependencies that are not exploitable through Disdantic.
+- Issues requiring the victim to intentionally clone and run Disdantic against a malicious, untrusted Git repository, unless it leads to unexpected system compromise beyond the expected permissions.
 
 *(Note: We currently do not operate a bug bounty program. Disclosures are greatly appreciated but are not eligible for financial rewards at this time.)*
 
 
 ## File: SUPPORT.md
 
-# Support for `template-python`
 
-We are excited to have you use `template-python`! If you need help, please follow these guidelines to ensure you get support quickly and efficiently.
+<!--
+Copyright 2026 markurtz
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+# Support for Disdantic
+
+We are excited to have you use Disdantic! If you need help, please follow these guidelines to ensure you get support quickly and efficiently.
 
 ## Security Vulnerabilities
 
@@ -606,24 +2430,23 @@ If you have found a security vulnerability, please refer to our [Security Policy
 
 Before reaching out, we recommend checking the following resources. Many common questions and issues are already covered there.
 
-- **[Official Documentation](https://markurtz.github.io/template-python):** Comprehensive guides, tutorials, and API references.
-- **[GitHub Issues](https://github.com/markurtz/template-python/issues):** Search existing issues to see if someone else has already reported your problem or requested your feature. Feel free to add a "+1" reaction to existing issues to show your interest.
-- **[GitHub Discussions](https://github.com/markurtz/template-python/discussions):** Search our discussions for Q&A, general advice, and community knowledge.
+- **[Official Documentation](https://markurtz.github.io/disdantic):** Comprehensive guides, tutorials, and API references.
+- **[GitHub Issues](https://github.com/markurtz/disdantic/issues):** Search existing issues to see if someone else has already reported your problem or requested your feature. Feel free to add a "+1" reaction to existing issues to show your interest.
+- **[GitHub Discussions](https://github.com/markurtz/disdantic/discussions):** Search our discussions for Q&A, general advice, and community knowledge.
 
 ## Opening a New Issue
 
 If you cannot find an answer in the documentation or existing issues, please open a new issue. To help us resolve your issue faster, please choose the correct venue:
 
-| Issue Type             | Venue                                                                                                      | Description                                                                                                 |
-| :--------------------- | :--------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------- |
-| **Bug Report**         | [GitHub Issues](https://github.com/markurtz/template-python/issues/new)           | Use the "Bug Report" template. Provide reproducible steps, environment details, and relevant logs.          |
-| **Feature Request**    | [GitHub Issues](https://github.com/markurtz/template-python/issues/new)           | Use the "Feature Request" template. Clearly describe your use case and the problem the feature would solve. |
-| **Q&A / General Help** | [GitHub Discussions](https://github.com/markurtz/template-python/discussions/new) | Start a discussion for questions about how to use `template-python`, architecture queries, or advice.          |
+| Issue Type             | Venue                                                                       | Description                                                                                                 |
+| :--------------------- | :-------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------- |
+| **Bug Report**         | [GitHub Issues](https://github.com/markurtz/disdantic/issues/new)           | Use the "Bug Report" template. Provide reproducible steps, environment details, and relevant logs.          |
+| **Feature Request**    | [GitHub Issues](https://github.com/markurtz/disdantic/issues/new)           | Use the "Feature Request" template. Clearly describe your use case and the problem the feature would solve. |
+| **Q&A / General Help** | [GitHub Discussions](https://github.com/markurtz/disdantic/discussions/new) | Start a discussion for questions about how to use Disdantic or for general advice.                          |
 
 Feel free to join the conversation on GitHub Discussions to connect with other users and maintainers.
 
 ## Commercial Support
 
+At this time, there is no official commercial support available for Disdantic. Support is provided on a best-effort basis by the open-source community and maintainers.
 
-
-At this time, there is no official commercial support available for `template-python`. Support is provided on a best-effort basis by the open-source community and maintainers.

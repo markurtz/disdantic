@@ -1,6 +1,6 @@
 # Community
 
-`template-python` is an open-source project and we welcome participation from everyone. This section contains all the resources you need to get involved, stay informed, and interact with the community.
+`disdantic` is an open-source project and we welcome participation from everyone. This section contains all the resources you need to get involved, stay informed, and interact with the community.
 
 ## Get Involved
 
@@ -66,10 +66,10 @@ Where to ask questions, report issues, and find help.
 
 ## Community Channels
 
-| Channel                                                                                  | Purpose                                        |
-| :--------------------------------------------------------------------------------------- | :--------------------------------------------- |
-| <a href="https://github.com/markurtz/template-python/issues">GitHub Issues</a>           | Bug reports and feature requests               |
-| <a href="https://github.com/markurtz/template-python/discussions">GitHub Discussions</a> | Q&A, ideas, and general community conversation |
+| Channel                                                                            | Purpose                                        |
+| :--------------------------------------------------------------------------------- | :--------------------------------------------- |
+| <a href="https://github.com/markurtz/disdantic/issues">GitHub Issues</a>           | Bug reports and feature requests               |
+| <a href="https://github.com/markurtz/disdantic/discussions">GitHub Discussions</a> | Q&A, ideas, and general community conversation |
 
 <!-- | <a href="{{ slack_url }}">Slack</a>                                                      | Real-time chat with the team and community     | -->
 

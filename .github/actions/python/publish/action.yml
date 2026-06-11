@@ -1,0 +1,50 @@
+---
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+name: "Python Publish"
+description: "Downloads python package build, attests build provenance, publishes to PyPI,\
+  \ and optionally creates GitHub Release"
+inputs:
+  create-release:
+    description: "Whether to create a GitHub Release (requires tags)"
+    required: false
+    default: "false"
+runs:
+  using: "composite"
+  steps:
+    - name: Generate artifact attestations
+      uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2  # v2.2.3
+      with:
+        subject-path: dist/*
+    - name: Publish to PyPI
+      uses: docker://ghcr.io/pypa/gh-action-pypi-publish:v1.14.0
+      with:
+        packages-dir: dist/
+        user: __token__
+        password: ""
+        repository-url: https://upload.pypi.org/legacy/
+        verify-metadata: true
+        skip-existing: false
+        verbose: true
+        print-hash: true
+        attestations: true
+    - name: Create GitHub Release
+      if: inputs.create-release == 'true'
+      uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191  # v2.0.8
+      with:
+        files: dist/*
+        generate_release_notes: true
+        prerelease: auto
+      env:
+        GITHUB_TOKEN: ${{ github.token }}

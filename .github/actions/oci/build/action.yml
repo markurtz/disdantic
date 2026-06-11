@@ -1,0 +1,89 @@
+---
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+name: "OCI Builder"
+description: "Builds container image and saves it as a tarball"
+inputs:
+  python-version:
+    description: "Python version to set up for tooling"
+    required: true
+  force-run:
+    description: "Always run even if no changes are detected"
+    required: false
+    default: "false"
+  build-type:
+    description: "Build type: dev, nightly, or release"
+    required: false
+    default: "dev"
+outputs:
+  image-path:
+    description: "The path to the saved OCI image tarball"
+    value: "disdantic-latest.tar"
+runs:
+  using: "composite"
+  steps:
+    - name: Detect changes
+      if: inputs.force-run != 'true'
+      uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590  # v3.0.3
+      id: filter
+      with:
+        filters: .github/paths-filter.yml
+    - name: Evaluate changes
+      id: check
+      shell: bash
+      env:
+        FORCE_RUN: ${{ inputs.force-run }}
+        GITHUB_CHANGES: ${{ steps.filter.outputs.github_changes }}
+        OCI_CHANGES: ${{ steps.filter.outputs.oci_changes }}
+        SRC_CHANGES: ${{ steps.filter.outputs.src_changes }}
+        PYPROJECT_CHANGES: ${{ steps.filter.outputs.pyproject_changes }}
+      run: |
+        if [[ "$FORCE_RUN" == "true" || \
+              "$GITHUB_CHANGES" == "true" || \
+              "$OCI_CHANGES" == "true" || \
+              "$SRC_CHANGES" == "true" || \
+              "$PYPROJECT_CHANGES" == "true" ]]; then
+          echo "run=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "run=false" >> "$GITHUB_OUTPUT"
+        fi
+    - name: Set up Python & Hatch
+      if: steps.check.outputs.run == 'true'
+      uses: ./.github/actions/utility/setup-python
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Resolve and set version
+      id: version-resolver
+      if: steps.check.outputs.run == 'true'
+      shell: bash
+      env:
+        BUILD_TYPE: ${{ inputs.build-type }}
+      run: |-
+        hatch run gitversioned write --version-type "$BUILD_TYPE"
+        VERSION=$(GITVERSIONED__LOGGING__LEVEL=ERROR hatch project metadata | python3 -c "import json, sys; print(json.load(sys.stdin)['version'])")
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+    - name: Build OCI Image
+      if: steps.check.outputs.run == 'true'
+      shell: bash
+      env:
+        BUILD_VERSION: ${{ steps.version-resolver.outputs.version }}
+        GIT_SHA: ${{ github.sha }}
+      run: |
+        hatch run oci:build --build-arg VERSION="$BUILD_VERSION" --build-arg GIT_SHA="$GIT_SHA" --build-arg BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+    - name: Save OCI Image to Tarball
+      if: steps.check.outputs.run == 'true'
+      shell: bash
+      run: |-
+        echo "[INFO] Serializing OCI image to tarball..."
+        docker save disdantic:latest -o disdantic-latest.tar

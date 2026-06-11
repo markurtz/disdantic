@@ -1,76 +1,155 @@
-# noqa: INP001
-"""
-Generate the code reference pages and navigation.
+"""Manage dynamic Python API reference pages in the docs directory.
 
-This module automates the creation of API reference documentation. It leverages the
-``mkdocs-gen-files`` plugin to traverse the ``src/`` directory, generating Markdown
-pages for each Python module and constructing a unified navigation structure. This
-ensures the project's codebase remains fully documented and accessible.
+This module automates the discovery of source code files and generates corresponding
+Markdown files containing mkdocstrings directives. This setup ensures that the
+project's Python API reference documentation is dynamically built, cleanly organized,
+and synchronized with source changes.
+
+Example:
+    To programmatically trigger a reference page build:
+
+    .. code-block:: python
+
+        from pathlib import Path
+        from gen_ref_pages import generate
+
+        generate(src_dir=Path("src"), ref_dir=Path("docs/reference/python_api"))
 """
 
+from __future__ import annotations
+
+import shutil
 from pathlib import Path
+from typing import Annotated
 
-import mkdocs_gen_files
+import typer
 
-__all__ = ["generate_api_reference"]
+__all__ = [
+    "REF_DIR",
+    "SRC_DIR",
+    "app",
+    "clean",
+    "generate",
+]
+
+SRC_DIR: Annotated[
+    Path,
+    "The default root directory containing the project source code to scan.",
+] = Path("src")
+REF_DIR: Annotated[
+    Path,
+    "The default target directory where markdown reference files will be written.",
+] = Path("docs/reference/python_api")
+
+app: Annotated[
+    typer.Typer,
+    "The Typer application instance orchestrating command-line entry points "
+    "for reference documentation management.",
+] = typer.Typer(help="Manage dynamic Python API reference pages.")
 
 
-def generate_api_reference() -> None:
-    """
-    Generate the API reference documentation and navigation structure.
+@app.command()
+def clean(
+    ref_dir: Annotated[
+        Path,
+        typer.Option(
+            "--ref-dir",
+            help="Reference directory to clean.",
+        ),
+    ] = REF_DIR,
+) -> None:
+    """Purge the generated reference directory to prevent stale pages.
 
-    Iterates through all Python source files in the ``src/`` directory, converting
-    their paths into a logical documentation structure. It generates Markdown files
-    with appropriate directives to render the API, and produces a literate navigation
-    summary.
+    This utility removes all dynamically generated reference files to ensure
+    that modules deleted or renamed in the source directory do not leave
+    stale reference documentation behind in the build output.
 
     Example:
-        This function is executed directly when the script is run:
-
         .. code-block:: python
 
-            generate_api_reference()
+            from pathlib import Path
+            from gen_ref_pages import clean
 
-    :return: None
+            clean(ref_dir=Path("docs/reference/python_api"))
+
+    :param ref_dir: The target reference directory path to delete.
     """
-    navigation = mkdocs_gen_files.Nav()
-    root_directory = Path(__file__).parent.parent.parent
-    source_directory = root_directory / "src"
-    api_reference_path = Path("reference/api")
+    if ref_dir.exists():
+        shutil.rmtree(ref_dir)
 
-    for python_file in sorted(source_directory.rglob("*.py")):
-        module_path = python_file.relative_to(source_directory).with_suffix("")
-        document_path = python_file.relative_to(source_directory).with_suffix(".md")
-        full_document_path = api_reference_path / document_path
 
-        path_parts = tuple(module_path.parts)
+@app.command()
+def generate(
+    src_dir: Annotated[
+        Path,
+        typer.Option(
+            "--src-dir",
+            help="Source directory containing Python code.",
+        ),
+    ] = SRC_DIR,
+    ref_dir: Annotated[
+        Path,
+        typer.Option(
+            "--ref-dir",
+            help="Reference directory where documentation is generated.",
+        ),
+    ] = REF_DIR,
+) -> None:
+    """Generate Python API reference pages dynamically in the docs directory.
 
-        if path_parts[-1] == "__init__":
-            path_parts = path_parts[:-1]
-            document_path = document_path.with_name("index.md")
-            full_document_path = full_document_path.with_name("index.md")
-        elif path_parts[-1] == "__main__":
+    This function scans the source directory for Python modules and creates a
+    corresponding reference Markdown file containing the appropriate
+    mkdocstrings directive. It automatically excludes `__main__` entry points
+    and handles package `__init__` files to build a clean documentation hierarchy.
+
+    Example:
+        .. code-block:: python
+
+            from pathlib import Path
+            from gen_ref_pages import generate
+
+            generate(src_dir=Path("src"), ref_dir=Path("docs/reference/python_api"))
+
+    :param src_dir: The root directory containing Python source modules.
+    :param ref_dir: The destination directory to write Markdown reference pages.
+    """
+    clean(ref_dir=ref_dir)
+    ref_dir.mkdir(parents=True, exist_ok=True)
+
+    for source_path in sorted(src_dir.rglob("*.py")):
+        module_path = source_path.relative_to(src_dir).with_suffix("")
+        module_parts = list(module_path.parts)
+
+        # Exclude __main__ command line entry points or non-public modules
+        if module_parts[-1] == "__main__":
             continue
 
-        if not path_parts:
+        is_index = False
+        if module_parts[-1] == "__init__":
+            module_parts.pop()
+            is_index = True
+
+        if not module_parts:
             continue
 
-        navigation[path_parts] = document_path.as_posix()
+        import_str = ".".join(module_parts)
 
-        with mkdocs_gen_files.open(full_document_path, "w") as document_file:
-            identifier = ".".join(path_parts)
-            document_file.write(
-                f"::: {identifier}\n"
-                "    options:\n"
-                "      show_root_heading: true\n"
-                "      show_source: true\n"
-            )
+        # Strip the root package name to keep the navigation clean
+        doc_parts = module_parts[1:]
 
-        mkdocs_gen_files.set_edit_path(full_document_path, python_file)
+        if is_index:
+            doc_path = ref_dir.joinpath(*doc_parts, "index.md")
+        else:
+            doc_path = ref_dir.joinpath(*doc_parts).with_suffix(".md")
 
-    summary_file_path = api_reference_path / "SUMMARY.md"
-    with mkdocs_gen_files.open(summary_file_path, "w") as navigation_file:
-        navigation_file.writelines(navigation.build_literate_nav())
+        # Ensure parent directories exist
+        doc_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Generate the file with mkdocstrings directive
+        with doc_path.open("w", encoding="utf-8") as doc_file:
+            doc_file.write(f"# {import_str}\n\n")
+            doc_file.write(f"::: {import_str}\n")
 
 
-generate_api_reference()
+if __name__ == "__main__":
+    app()

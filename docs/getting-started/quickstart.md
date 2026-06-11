@@ -1,62 +1,59 @@
 # Quick Start
 
-This guide gets you from a fresh clone to a bootstrapped and running project in under 5 minutes.
+This guide gets you from a fresh clone to a running local development environment in under 5 minutes.
 
-## Step 1 — Instantiate the Template
+## Step 1 — Clone the Repository
 
-1. Navigate to the [template-python repository on GitHub](https://github.com/markurtz/template-python).
-1. Click the green **Use this template** button and select **Create a new repository**.
-1. Choose your repository name and visibility, then click **Create repository**.
-1. Clone your new repository to your local machine:
-   ```bash
-   git clone https://github.com/YOUR_ORG/YOUR_REPO.git
-   cd YOUR_REPO
-   ```
-
-## Step 2 — Bootstrap the Project
-
-The template comes with an interactive script that automatically replaces all placeholders with your project's details.
-
-Run the bootstrap script using `uv`:
+Clone the `disdantic` repository to your local machine:
 
 ```bash
-uv run scripts/bootstrap.py
+git clone https://github.com/markurtz/disdantic.git
+cd disdantic
 ```
 
-Follow the interactive prompts to configure your project. Once complete, you can choose to finalize the process, which will delete the bootstrap script and its tests.
+## Step 2 — Set Up and Sync the Environment
 
-## Step 3 — Sync the Environment
+We use **[uv](https://docs.astral.sh/uv/)** to manage Python packages and environments, and **[Hatch](https://hatch.pypa.io/)** to orchestrate development tasks.
 
-Now that your project is renamed and configured, install all dependencies and set up your local development environment:
+Sync the Python environment to install all required dependencies and tools:
 
 ```bash
 uv sync --all-groups --all-extras
 ```
 
-## Step 4 — Run Tests and Quality Checks
+This will create a local `.venv` directory for IDE code resolution and install the development tools.
 
-Ensure everything is configured correctly by running the pre-configured quality checks and tests:
+## Step 3 — Run Tests and Quality Checks
+
+Verify that your local environment is configured correctly by running the pre-configured quality checks and tests:
 
 ```bash
 # Run linting and type checking
-hatch run lint:check
-hatch run types:check
+hatch run python:lint
+hatch run python:types
 
-# Run tests
-hatch run test:all
+# Run the python unit test suite
+hatch run python:tests-unit
 ```
 
-If all tests pass, your new project is successfully bootstrapped and ready for development!
+If all tests pass, your local environment is successfully set up and ready!
+
+## Step 4 — Run an Example
+
+You can explore and run a basic example to see how the project functions. Run the template example:
+
+```bash
+python examples/example_template/main.py
+```
 
 > [!TIP]
-> See the [Developer Guide](../community/developing.md) for more details on local development commands.
+> See the [Developer Guide](../community/developing.md) for more details on local development commands and advanced options.
 
 ## Step 5 — Explore Further
 
-Now that your project is ready, explore what `template-python` provides:
+Now that your project is ready, explore what `disdantic` provides:
 
-- **[Repository Setup](../guides/repository-setup.md)** — Complete your GitHub configuration (Actions, Discussions, PyPI publishing).
 - **[Guides](../guides/index.md)** — Task-specific deep dives including CI/CD workflows.
 - **[Reference](../reference/index.md)** — Full configuration reference.
 
-**Next:** [Repository Setup →](../guides/repository-setup.md)
+**Next:** [Guides →](../guides/index.md)

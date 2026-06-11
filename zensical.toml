@@ -1,0 +1,50 @@
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+[project]
+site_name = "disdantic"
+site_url = "https://markurtz.github.io/disdantic/"
+site_description = "A lightweight collection of utilities and mixins for Pydantic. disdantic simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate."
+site_author = "markurtz"
+repo_url = "https://github.com/markurtz/disdantic"
+repo_name = "markurtz/disdantic"
+
+[project.extra.version]
+provider = "mike"
+default = "latest"
+
+
+[project.theme]
+variant = "modern"
+features = ["navigation.indexes"]
+logo = "assets/branding/logo-magenta.svg"
+favicon = "assets/branding/icon-magenta.png"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.plugins.macros]
+module_name = "docs/scripts/macros"
+
+[project.plugins.mkdocstrings]
+handlers = { python = { paths = ["src"] } }

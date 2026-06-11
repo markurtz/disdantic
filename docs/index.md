@@ -4,34 +4,40 @@ hide:
   - toc
 ---
 
+<!--
+Copyright 2026 markurtz
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Unless otherwise noted, all files in this directory and its subdirectories
+are licensed under the Apache License, Version 2.0.
+-->
+
 <div class="hero" markdown>
 <div class="hero-content" markdown>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/branding/logo-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="assets/branding/logo-light.svg">
-  <img alt="template-python Logo" src="assets/branding/logo-light.svg" width="400">
-</picture>
+<img alt="disdantic Logo" src="assets/branding/logo-black.svg#only-light" width="400">
+<img alt="disdantic Logo" src="assets/branding/logo-white.svg#only-dark" width="400">
 
-# template-python
+# disdantic
 
-**An opinionated, production-ready Apache 2.0 template repository for bootstrapping modern software projects.**
+**A lightweight collection of utilities and mixins for Pydantic.**
 
 [Get Started](getting-started/index.md){ .md-button .md-button--primary }
-<a href="https://github.com/markurtz/template-python" class="md-button">View on GitHub</a>
+[View on GitHub](https://github.com/markurtz/disdantic){ .md-button }
 
 </div>
 </div>
-
-## Overview
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/branding/user-flow-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="assets/branding/user-flow-light.svg">
-    <img alt="User Flow Diagram" src="assets/branding/user-flow-light.svg" width="800">
-  </picture>
-</p>
 
 ## What's Included
 
@@ -64,7 +70,7 @@ Step-by-step guides for common tasks, integrations, and configuration patterns.
 
 ______________________________________________________________________
 
-Runnable code examples that demonstrate real-world usage of template-python.
+Runnable code examples that demonstrate real-world usage of disdantic.
 
 [:octicons-arrow-right-24: See Examples](examples/index.md)
 
@@ -108,15 +114,15 @@ Our security policy, responsible disclosure process, and supported versions.
 ## Quick Install
 
 ```bash
-pip install template-python
+pip install disdantic
 ```
 
 For advanced installation options, and step-by-step onboarding, see the [Installation Guide](getting-started/installation.md).
 
 ## Links
 
-- :material-github: <a href="https://github.com/markurtz/template-python">GitHub Repository</a>
-- :material-map-marker-path: <a href="https://github.com/markurtz/template-python/milestones">Roadmap</a>
+- :material-github: [GitHub Repository](https://github.com/markurtz/disdantic)
+- :material-map-marker-path: [Roadmap](https://github.com/markurtz/disdantic/milestones)
 
 <!-- - :material-post-outline: <a href="{{ blog_url }}">Blog</a> -->
 

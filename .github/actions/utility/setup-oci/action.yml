@@ -1,0 +1,58 @@
+---
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+name: "Setup OCI Environment"
+description: "Utility action to install OCI quality and security tools (hadolint, dclint,\
+  \ dockle, trivy)"
+runs:
+  using: "composite"
+  steps:
+    - name: Install Trivy
+      uses: taiki-e/install-action@d9be7d8cda89035c9c843f78bd44d4f72d8403d4  # v2.79.7
+      with:
+        tool: trivy
+    - name: Install Hadolint
+      shell: bash
+      run: |-
+        mkdir -p "$HOME/.local/bin"
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m | sed -e 's/aarch64/arm64/')
+        if [ "$OS" = "darwin" ]; then
+          OS="macos"
+        elif [ "$OS" = "linux" ] && [ "$ARCH" = "x86_64" ]; then
+          OS="Linux"
+        fi
+        HADOLINT_VERSION="v2.12.0"
+        curl -sSL -o "$HOME/.local/bin/hadolint" "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-${OS}-${ARCH}"
+        chmod +x "$HOME/.local/bin/hadolint"
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+    - name: Install Dockle
+      shell: bash
+      run: |-
+        VERSION="v0.4.15"
+        curl -L -o dockle.deb "https://github.com/goodwithtech/dockle/releases/download/${VERSION}/dockle_${VERSION#v}_Linux-64bit.deb"
+        sudo dpkg -i dockle.deb
+        rm dockle.deb
+    - name: Install DCLint
+      shell: bash
+      run: npm install -g dclint@3.1.0
+    - name: Install container-structure-test
+      shell: bash
+      run: |-
+        mkdir -p "$HOME/.local/bin"
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')
+        curl -sSL -o "$HOME/.local/bin/container-structure-test" "https://github.com/GoogleContainerTools/container-structure-test/releases/download/v1.22.1/container-structure-test-${OS}-${ARCH}"
+        chmod +x "$HOME/.local/bin/container-structure-test"
+        echo "$HOME/.local/bin" >> $GITHUB_PATH

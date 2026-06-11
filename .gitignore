@@ -1,3 +1,17 @@
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # ==============================================================================
 # Operating Systems
 # ==============================================================================
@@ -50,6 +64,7 @@ cmake-build-*/
 .run/
 
 # VS Code / Cursor
+.vscode
 .vscode/*
 .vscode/settings.json
 .vscode/tasks.json
@@ -80,7 +95,7 @@ bin/
 .zed/
 
 # Xcode
-build/
+/build/
 *.pbxuser
 !default.pbxuser
 *.mode1v3
@@ -161,13 +176,13 @@ nosetests.xml
 # ==============================================================================
 
 # Python
-src/template_python/version.py
+src/disdantic/version.py
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
+/build/
 develop-eggs/
 dist/
 downloads/
@@ -189,9 +204,6 @@ MANIFEST
 .hatch/
 .hypothesis/
 .pytest_cache/
-.mypy_cache/
-.dmypy.json
-dmypy.json
 .pyre/
 .pytype/
 .ruff_cache/
@@ -287,6 +299,7 @@ bld/
 # Rust
 # target/ (Moved to avoid conflict with Java target/ if in same dir, but fine to ignore twice)
 **/*.rs.bk
+.bin/
 # Cargo.lock # Note: Cargo.lock should typically be committed for executables
 
 # Go
@@ -391,3 +404,25 @@ cdk.out/
 *.csv
 *.dat
 *.seed
+
+# Trivy cache
+.trivycache/
+
+# Generated phmdoctest files
+/.tests/
+
+# Generated reference documentation
+/.docs/
+/docs/reference/python_api/
+
+# Generated version.py files
+version.py
+
+# Reference backup folder
+.github-old/
+
+# Local act testing payloads
+pull_request_event.json
+push_event.json
+
+

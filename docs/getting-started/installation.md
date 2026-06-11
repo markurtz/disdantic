@@ -1,6 +1,6 @@
 # Installation
 
-This page covers all supported installation methods for `template-python`.
+This page covers all supported installation methods for `disdantic`.
 
 ## Requirements
 
@@ -21,7 +21,7 @@ If you need to install the package directly into an environment (e.g., for local
 
 ````
 ```bash
-pip install template_python
+pip install disdantic
 ```
 ````
 
@@ -29,7 +29,7 @@ pip install template_python
 
 ````
 ```bash
-uv pip install template_python
+uv pip install disdantic
 ```
 ````
 
@@ -38,7 +38,7 @@ uv pip install template_python
 After installation, you can confirm it is available in your Python environment by running:
 
 ```bash
-python -c "import template_python; print(template_python.__version__)"
+python -c "import disdantic; print(disdantic.__version__)"
 ```
 
 You should see output similar to:
@@ -52,8 +52,8 @@ You should see output similar to:
 To install the latest unreleased code directly from the repository and set up a local development environment:
 
 ```bash
-git clone https://github.com/markurtz/template-python.git
-cd template-python
+git clone https://github.com/markurtz/disdantic.git
+cd disdantic
 
 # Sync the development environment (installs all groups and extras)
 uv sync --all-groups --all-extras
@@ -71,10 +71,10 @@ A pre-built Docker image is available for containerized environments:
 
 ```bash
 # Pull the latest image
-docker pull ghcr.io/markurtz/template-python:latest
+docker pull ghcr.io/markurtz/disdantic:latest
 
 # Run a one-off command
-docker run --rm ghcr.io/markurtz/template-python:latest python -c "import template_python; print(template_python.__version__)"
+docker run --rm ghcr.io/markurtz/disdantic:latest python -c "import disdantic; print(disdantic.__version__)"
 ```
 
 For a persistent, volume-mounted setup using Docker Compose, see the `docker-compose.yml` in the root of the repository.
@@ -107,7 +107,7 @@ To upgrade an existing installation to the latest release:
 
 ````
 ```bash
-pip install --upgrade template-python
+pip install --upgrade disdantic
 ```
 ````
 
@@ -115,7 +115,7 @@ pip install --upgrade template-python
 
 ````
 ```bash
-uv pip install --upgrade template-python
+uv pip install --upgrade disdantic
 ```
 ````
 
@@ -125,7 +125,7 @@ uv pip install --upgrade template-python
 
 ````
 ```bash
-pip uninstall template-python
+pip uninstall disdantic
 ```
 ````
 
@@ -133,7 +133,7 @@ pip uninstall template-python
 
 ````
 ```bash
-uv pip uninstall template-python
+uv pip uninstall disdantic
 ```
 ````
 

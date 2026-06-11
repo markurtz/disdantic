@@ -1,6 +1,25 @@
-# template-python Examples
+<!--
+Copyright 2026 markurtz
 
-This directory contains practical, runnable demonstrations of how to use `template-python` in various scenarios. These examples are designed to help you quickly understand core concepts, advanced configurations, and best practices.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Unless otherwise noted, all files in this directory and its subdirectories
+are licensed under the Apache License, Version 2.0.
+-->
+
+# Disdantic Examples
+
+This directory contains practical, runnable demonstrations of how to use Disdantic in various scenarios. These examples are designed to help you quickly understand core concepts, advanced configurations, and best practices.
 
 ## Prerequisites
 
@@ -10,17 +29,19 @@ Before running the examples, ensure you have set up your environment correctly:
 1. **Environment Variables:** Copy `.env.example` to `.env` if the examples require configuration (e.g., API keys or external services).
 
 > [!NOTE]
-> Some examples may require additional dependencies not included in the core `template-python` package. Please check the `README.md` within each specific example directory for details.
+> Some examples may require additional dependencies not included in the core `disdantic` package. Please check the `README.md` within each specific example directory for details.
 
 ## Example Index
 
-Below is a curated list of available examples, categorized by complexity:
+Below is a curated list of available examples, categorized by build tool and use case:
 
-| Example                                      | Complexity | Description                                                                                    |
-| :------------------------------------------- | :--------- | :--------------------------------------------------------------------------------------------- |
-| **`[example_template/](example_template/)`** | Beginner   | A generic template demonstrating standard structure, configuration, and telemetry integration. |
+### Benchmarking & Network Examples
 
-<!-- Add new examples to the table above as they are created. -->
+| Example                                      | Complexity | Description                                                              |
+| :------------------------------------------- | :--------- | :----------------------------------------------------------------------- |
+| **`[example_template/](example_template/)`** | Beginner   | Generic boilerplate template demonstrating standard example conventions. |
+
+<!-- Add new examples to the tables above as they are created. -->
 
 ## Running the Examples
 
@@ -28,7 +49,7 @@ Most examples can be executed directly from the command line. Navigate to the ro
 
 ```bash
 # Example: Running a generic example script
-python examples/example_template/main.py
+python examples/example_name/main.py
 ```
 
 > [!TIP]

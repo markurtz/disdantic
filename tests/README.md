@@ -1,16 +1,14 @@
 # Testing Guide
 
-This directory contains the testing suite for `template-python`. We use `pytest` as our testing framework and `hatch` to manage test environments and execution.
+This directory contains the testing suite for `disdantic`. We use `pytest` as our testing framework and `hatch` to manage test environments and execution.
 
 ## Test Tiers
 
 Tests are categorized into three distinct tiers, each located in its respective subdirectory:
 
-| Test Tier       | Directory            | Description                                                                                                               |
-| :-------------- | :------------------- | :------------------------------------------------------------------------------------------------------------------------ |
-| **Unit**        | `tests/unit/`        | Fast, isolated tests for individual functions and classes. These tests should not rely on external services or databases. |
-| **Integration** | `tests/integration/` | Slower tests that verify interactions between multiple components or modules within the application.                      |
-| **End-to-End**  | `tests/e2e/`         | Full-stack tests simulating real user workflows, from entry points to expected outcomes.                                  |
+| **Unit** | `tests/python/unit/` | Fast, isolated tests for individual functions and classes. These tests should not rely on external services or systems. |
+| **Integration** | `tests/python/integration/` | Slower tests that verify interactions between multiple components or modules within the application. |
+| **End-to-End** | `tests/e2e/` | Full-stack tests simulating real user workflows, from entry points to expected outcomes. |
 
 ## Pytest Markers
 
@@ -32,17 +30,26 @@ We recommend using `hatch` to run tests, as it automatically manages the require
 ### Standard Test Runs
 
 ```bash
-# Run all tests
-hatch run test:all
+# Run all Python tests (global cascade)
+hatch run all:tests
 
-# Run only unit tests
-hatch run test:unit
+# Run all Python tests
+hatch run python:tests
 
-# Run tests with a specific marker
-hatch run test:all -m "smoke"
+# Run only Python unit tests
+hatch run python:tests-unit
 
-# Run tests in a specific file
-hatch run test:all tests/unit/test_version.py
+# Run Python integration tests
+hatch run python:tests-int
+
+# Run Python tests with a specific marker
+hatch run python:tests -m "smoke"
+
+# Run Python tests in a specific file
+hatch run python:tests tests/python/unit/test_version.py
+
+# Run system end-to-end (e2e) tests
+hatch run project:tests-e2e
 ```
 
 ### Coverage Reports
@@ -50,18 +57,20 @@ hatch run test:all tests/unit/test_version.py
 To generate coverage reports, use the `-cov` suffixed commands. These will output both a terminal report and an HTML report located in `docs/coverage/`.
 
 ```bash
-# Run all tests with coverage
-hatch run test:all-cov
+# Run all Python tests with coverage
+hatch run python:tests-cov
 
-# Run only unit tests with coverage
-hatch run test:unit-cov
+# Run only Python unit tests with coverage
+hatch run python:tests-unit-cov
 ```
 
 ## Adding New Tests
 
-When creating new tests, ensure they are placed in the appropriate tier directory (`unit/`, `integration/`, or `e2e/`) and include the necessary markers.
+When creating new tests, ensure they are placed in the appropriate tier directory (`python/unit/`, `python/integration/`, or `e2e/`) and include the necessary markers.
 
 ### Example Unit Test
+
+<!--phmdoctest-skip-->
 
 ```python
 """Unit tests for my_module."""
@@ -70,7 +79,7 @@ from __future__ import annotations
 
 import pytest
 
-from template_python import my_module
+from disdantic import my_module
 
 
 @pytest.mark.smoke
@@ -81,4 +90,4 @@ def test_my_function() -> None:
 ```
 
 > [!TIP]
-> **Type Hints:** Ensure all test functions are fully type-hinted (e.g., `-> None:` for test return types) to satisfy our strict `mypy` configuration.
+> **Type Hints:** Ensure all test functions are fully type-hinted (e.g., `-> None:` for test return types) to satisfy our strict type-checking configuration.
