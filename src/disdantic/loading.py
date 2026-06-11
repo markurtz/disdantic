@@ -64,6 +64,7 @@ class LazyProxy:
         """
         self._factory = factory
         self._wrapped: Any = None
+        self._resolved = False
         self._lock = threading.Lock()
 
     def __getattr__(self, name: str) -> Any:
@@ -87,17 +88,18 @@ class LazyProxy:
         :returns: A string indicating initialization state or the wrapped
             representation.
         """
-        if self._wrapped is None:
+        if not self._resolved:
             return f"<LazyProxy for uninitialized factory: {self._factory}>"
         return repr(self._wrapped)
 
     def _resolve(self) -> Any:
         # Double-checked locking implementation preventing concurrent serialization
         # or import errors.
-        if self._wrapped is None:
+        if not self._resolved:
             with self._lock:
-                if self._wrapped is None:
+                if not self._resolved:
                     self._wrapped = self._factory()
+                    self._resolved = True
         return self._wrapped
 
 

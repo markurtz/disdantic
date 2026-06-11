@@ -120,9 +120,10 @@ def diagnose(
     """
     if path:
         reset_settings()
-        disdantic.settings._global_settings = Settings(  # noqa: SLF001
-            project_root=Path(path)
-        )
+        with disdantic.settings._settings_lock:  # noqa: SLF001
+            disdantic.settings._global_settings = Settings(  # noqa: SLF001
+                project_root=Path(path)
+            )
 
     report = verify_registries()
 

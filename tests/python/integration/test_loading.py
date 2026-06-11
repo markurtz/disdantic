@@ -146,6 +146,30 @@ class TestLazyProxy:
         assert all(res_val == "success" for res_val in results)
         assert call_count == 1
 
+    @pytest.mark.regression
+    def test_factory_returns_none(self) -> None:
+        """Verify that a factory returning None is cached and only called once."""
+        call_count = 0
+
+        def factory_returning_none() -> None:
+            nonlocal call_count
+            call_count += 1
+
+        proxy_instance = LazyProxy(factory_returning_none)
+        assert proxy_instance._wrapped is None
+        assert not proxy_instance._resolved
+
+        # Trigger resolution
+        resolved = proxy_instance._resolve()
+        assert resolved is None
+        assert proxy_instance._resolved
+        assert call_count == 1
+
+        # Retrieve again, count should still be 1
+        resolved_again = proxy_instance._resolve()
+        assert resolved_again is None
+        assert call_count == 1
+
 
 class TestLazyLoader:
     """Integration test suite for LazyLoader class."""
