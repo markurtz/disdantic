@@ -31,3 +31,7 @@ runs:
         python -m pip install --break-system-packages --upgrade pip
         pip install --break-system-packages --ignore-installed uv>=0.11.0  # Pin to latest stable/compatible uv
         pip install --break-system-packages --ignore-installed hatch>=1.16.0  # Pin to latest stable/compatible hatch
+    - name: Configure environment
+      shell: bash
+      run: |-
+        echo "GITVERSIONED__LOGGING__LEVEL=ERROR" >> "$GITHUB_ENV"

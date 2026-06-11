@@ -90,7 +90,10 @@ jobs:
               details.append(f"<details>\n<summary>🔍 {suite} Suite ({py_ver})</summary>\n\n{content}\n</details>")
           if summary_rows:
               body = "### 📊 Test Coverage Results\n\n| Test Suite | Python/Language | Stmts/Lines | Miss/Branches | Coverage/Functions |\n| :--- | :---: | :---: | :---: | :---: |\n" + "\n".join(sorted(summary_rows)) + "\n\n<hr />\n\n### 📄 Detailed Reports\n\n" + "\n".join(details)
-              with open(os.environ["GITHUB_OUTPUT"], "a") as f: f.write(f"coverage_body={body}\n")
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+                   f.write("coverage_body<<EOF\n")
+                   f.write(body)
+                   f.write("\nEOF\n")
           '
       - name: Compile Build Report
         id: builds

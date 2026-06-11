@@ -71,7 +71,7 @@ runs:
         BUILD_TYPE: ${{ inputs.build-type }}
       run: |-
         hatch run gitversioned write --version-type "$BUILD_TYPE"
-        VERSION=$(hatch project metadata | python3 -c "import json, sys; print(json.load(sys.stdin)['version'])")
+        VERSION=$(GITVERSIONED__LOGGING__LEVEL=ERROR hatch project metadata | python3 -c "import json, sys; print(json.load(sys.stdin)['version'])")
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
     - name: Build OCI Image
       if: steps.check.outputs.run == 'true'

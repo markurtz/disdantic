@@ -69,7 +69,7 @@ runs:
         BUILD_TYPE: ${{ inputs.build-type }}
       run: |-
         hatch run gitversioned write --version-type "$BUILD_TYPE"
-        VERSION=$(hatch project metadata | python3 -c "import json, sys; print(json.load(sys.stdin)['version'])")
+        VERSION=$(GITVERSIONED__LOGGING__LEVEL=ERROR hatch project metadata | python3 -c "import json, sys; print(json.load(sys.stdin)['version'])")
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
     - name: Build Package
       if: steps.check.outputs.run == 'true'
@@ -82,7 +82,7 @@ runs:
       env:
         BUILD_VERSION: ${{ steps.version-resolver.outputs.version }}
       run: |-
-        built_version=$(hatch project metadata 2>/dev/null | python3 -c "import json, sys; print(json.load(sys.stdin)['version'])")
+        built_version=$(GITVERSIONED__LOGGING__LEVEL=ERROR hatch project metadata 2>/dev/null | python3 -c "import json, sys; print(json.load(sys.stdin)['version'])")
         echo "[INFO] Expected version: $BUILD_VERSION"
         echo "[INFO] Hatch metadata version: $built_version"
         if [ "$built_version" != "$BUILD_VERSION" ]; then

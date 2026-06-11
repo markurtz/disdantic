@@ -471,6 +471,7 @@ Run `act` from the repository root:
 Because composite actions use `dorny/paths-filter` to detect path-level changes, running `act` directly will fail if the required event metadata is missing. To solve this, the repository contains two mock payload files that simulate the GitHub event context:
 
 1. **`pull_request_event.json`** for simulating PR events:
+
    ```json
    {
      "pull_request": {
@@ -486,12 +487,15 @@ Because composite actions use `dorny/paths-filter` to detect path-level changes,
      }
    }
    ```
+
    *Usage Example:*
+
    ```bash
    act pull_request -W .github/workflows/pipeline-development.yml -j project-quality -e pull_request_event.json --container-architecture linux/amd64
    ```
 
-2. **`push_event.json`** for simulating direct push events (e.g. to the `main` branch):
+1. **`push_event.json`** for simulating direct push events (e.g. to the `main` branch):
+
    ```json
    {
      "ref": "refs/heads/main",
@@ -502,7 +506,9 @@ Because composite actions use `dorny/paths-filter` to detect path-level changes,
      }
    }
    ```
+
    *Usage Example:*
+
    ```bash
    act push -W .github/workflows/pipeline-main.yml -j init-gate -e push_event.json --container-architecture linux/amd64
    ```
