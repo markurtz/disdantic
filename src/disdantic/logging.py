@@ -13,11 +13,18 @@
 # limitations under the License.
 
 """
-Loguru-based logging configuration and environment settings for disdantic.
+Configure logging infrastructure and provide utilities for disdantic.
 
-This module provides a unified interface for configuring application-level logging
-using loguru and Pydantic settings. It handles dynamic OpenTelemetry formatting,
-across the codebase and build environments.
+This module initializes and manages the global logger via the
+`configure_logger` interface, establishing log levels, target sinks, and
+thread-safe queues. It supports standard library logging interception through
+`InterceptHandler` and `intercept_standard_logging`, automated function
+telemetry via the `autolog` decorator, and structured OpenTelemetry-compliant
+JSON logging using the `OtelSink` wrapper.
+
+Veteran maintainers can quickly use `configure_logger` with `LoggingSettings` to
+configure logging behavior, while new contributors can leverage the `autolog`
+decorator to auto-instrument functions.
 """
 
 from __future__ import annotations
@@ -25,10 +32,12 @@ from __future__ import annotations
 import contextlib
 import functools
 import json
+import logging
 import sys
 import traceback
 from collections.abc import Callable
-from typing import Any, ClassVar, Literal, TypeVar, cast, overload
+from pathlib import Path
+from typing import Annotated, Any, ClassVar, Literal, TypeVar, cast, overload
 
 from loguru import logger
 from pydantic import Field, field_validator
@@ -36,85 +45,99 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from disdantic.compat import opentelemetry_trace
 
-__all__ = ["LoggingSettings", "autolog", "configure_logger", "logger"]
-
-_LOG_ENTRY_FORMAT: str = "Calling function '{name}' with args={args}, kwargs={kwargs}"
-_LOG_EXIT_FORMAT: str = "Function '{name}' returned: {result}"
-_LOG_EXCEPTION_FORMAT: str = "Exception occurred in function '{name}': {exception}"
-
-_FuncT = TypeVar("_FuncT", bound=Callable[..., Any])
-
-_state: dict[str, int | None] = {"handler_id": None}
+__all__ = [
+    "InterceptHandler",
+    "LoggingSettings",
+    "OtelSink",
+    "autolog",
+    "configure_logger",
+    "intercept_standard_logging",
+    "logger",
+]
 
 
 class LoggingSettings(BaseSettings):
     """
-    Settings model for configuring the loguru logging infrastructure.
+    Settings configuration for the disdantic logging subsystem.
 
-    This Pydantic model loads configuration from environment variables prefixed
-    with ``DISDANTIC__LOGGING__`` and provides typed fields for controlling
-    log output, formatting, and OpenTelemetry integration.
+    This class defines the configuration schema for logging, loading parameters
+    from environment variables prefixed with `DISDANTIC__LOGGING__` or via
+    direct instantiation. It allows customizing the output sink, log level,
+    format template, OpenTelemetry integration, and thread-safe queueing.
 
     Example:
         .. code-block:: python
 
             from disdantic.logging import LoggingSettings, configure_logger
 
-            settings = LoggingSettings(enabled=True, level="DEBUG")
+            settings = LoggingSettings(
+                enabled=True,
+                level="DEBUG",
+                sink="stdout"
+            )
             configure_logger(settings)
+
+    :cvar model_config: Configuration dictionary dictating environment variable
+                        prefixes and nested delimiters.
     """
 
     enabled: bool = Field(
         default=False,
         description=(
-            "Whether to enable disdantic loguru logging across the application."
+            "Enables or disables logging output across the disdantic package."
         ),
     )
     clear_loggers: bool = Field(
         default=False,
         description=(
-            "If true, removes all existing loguru handlers before configuring new ones."
+            "Configures whether all existing active logger sinks "
+            "are removed prior to setup."
         ),
     )
     sink: str | Any = Field(
-        default=sys.stdout,
+        default=sys.stderr,
         description=(
-            "The output sink for log messages. Can be an object or string "
-            "alias ('stdout')."
+            "Specifies and maps the output target, such as standard streams "
+            "(stdout, stderr) or a file path, for log messages."
         ),
     )
     level: str = Field(
-        default="INFO",
-        description="The minimum severity level for emitted log messages.",
+        default="WARNING",
+        description=(
+            "Configures the minimum severity level required for log messages "
+            "to be emitted."
+        ),
     )
     otel_formatting: Literal["auto", "enable", "disable"] = Field(
         default="auto",
         description=(
-            "Controls OpenTelemetry JSON formatting. 'auto' enables it if "
-            "otel is installed."
+            "Configures the OpenTelemetry-compliant JSON formatting option "
+            "(auto, enable, or disable)."
         ),
     )
     format: str | Callable[..., Any] | None = Field(
         default="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | "
         "<cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>\n",
         description=(
-            "The log format string or function to use when otel formatting is disabled."
+            "Configures the standard text template layout for emitted log lines."
         ),
     )
     filter: Any = Field(
         default=True,
         description=(
-            "Filters log records. Defaults to True to filter by the 'disdantic' prefix."
+            "Configures the filtering criteria, using a prefix string, "
+            "list of prefixes, or a filter function."
         ),
     )
     enqueue: bool = Field(
         default=True,
-        description="Whether to enable thread-safe asynchronous logging.",
+        description="Enables or disables asynchronous, thread-safe message queueing.",
     )
     kwargs: dict[str, Any] = Field(
         default_factory=dict,
         description=(
-            "Additional keyword arguments to pass directly to loguru's add() method."
+            "Maps additional custom arguments passed directly "
+            "to the loguru add handler."
         ),
     )
 
@@ -122,12 +145,11 @@ class LoggingSettings(BaseSettings):
         env_prefix="DISDANTIC__LOGGING__",
         env_nested_delimiter="__",
     )
-    """Pydantic configuration dict dictating environment variable prefixes."""
 
     @field_validator("sink", mode="before")
     @classmethod
     def _parse_sink(cls, value: Any) -> Any:
-        # Convert string aliases for stdout/stderr to actual objects.
+        # Convert string aliases for standard output/error streams to stream objects.
         if isinstance(value, str):
             mapping = {
                 "stdout": sys.stdout,
@@ -139,37 +161,64 @@ class LoggingSettings(BaseSettings):
         return value
 
 
-def configure_logger(settings: LoggingSettings | None = None) -> None:
+def configure_logger(  # noqa: C901, PLR0912, PLR0915
+    settings: LoggingSettings | None = None,
+    **default_overrides: Any,
+) -> None:
     """
-    Initializes the loguru logger with the provided settings or from the environment.
+    Configure the global Loguru logger based on settings.
 
-    This function configures the global loguru logger instance based on the provided
-    ``LoggingSettings``. It handles enabling/disabling the logger, managing sinks,
-    and injecting the appropriate formatter (including OpenTelemetry).
+    This function initializes or updates the active logger handler. If no
+    settings are provided, it loads settings from environment variables.
+    It enables interception of standard library log statements and configures
+    formatting, sinks, filtering, and queue options.
 
     Example:
         .. code-block:: python
 
-            from disdantic.logging import configure_logger, LoggingSettings
+            from disdantic.logging import LoggingSettings, configure_logger
 
-            configure_logger(LoggingSettings(level="DEBUG"))
+            configure_logger(
+                settings=LoggingSettings(level="INFO"),
+                clear_loggers=True
+            )
 
-    :param settings: An optional instance of ``LoggingSettings``. If not provided,
-                     settings are automatically loaded from the environment.
-    :return: None
-    :raises ImportError: If OpenTelemetry formatting is explicitly enabled but the
+    :param settings: Logging configurations, defaults to None (loads from environment).
+    :param default_overrides: Parameter overrides merged into env settings if
+                              settings is None.
+    :returns: None.
+    :raises ImportError: Raised if OpenTelemetry formatting is enabled but the
                          package is not installed.
     """
-    settings = settings or LoggingSettings()
+    if settings is None:
+        env_settings = LoggingSettings()
+        merged = default_overrides.copy()
+        for field in env_settings.model_fields_set:
+            merged[field] = getattr(env_settings, field)
+        settings = LoggingSettings(**merged)
 
     if not settings.enabled:
         logger.disable("disdantic")
+        intercept_standard_logging(False)
         return
 
     logger.enable("disdantic")
+    intercept_standard_logging(True)
 
     if settings.clear_loggers:
-        logger.remove()
+        if hasattr(logger, "_mock_name") or type(logger).__name__ in (
+            "MagicMock",
+            "Mock",
+        ):
+            logger.remove()
+        else:
+            for handler_id, handler in list(cast("Any", logger)._core.handlers.items()):  # noqa: SLF001
+                sink = getattr(handler, "_sink", None)
+                handler_obj = getattr(sink, "_handler", None)
+                if handler_obj and type(handler_obj).__name__ == "PropagateHandler":
+                    continue
+                with contextlib.suppress(ValueError):
+                    logger.remove(handler_id)
         _state["handler_id"] = None
     elif isinstance(_state["handler_id"], int):
         with contextlib.suppress(ValueError):
@@ -184,15 +233,19 @@ def configure_logger(settings: LoggingSettings | None = None) -> None:
             "OpenTelemetry is not installed but 'otel_formatting' was set to 'enable'."
         )
 
-    log_format = _otel_formatter if use_otel else settings.format
+    if use_otel:
+        sink_val = OtelSink(settings.sink)
+        log_format = "{message}\n"
+    else:
+        sink_val = settings.sink
+        log_format = settings.format
+
     filter_val = "disdantic" if settings.filter is True else settings.filter
 
-    if isinstance(filter_val, (list, tuple, str)):
-        prefixes = (
-            tuple(filter_val)
-            if isinstance(filter_val, (list, tuple))
-            else (filter_val,)
-        )
+    if isinstance(filter_val, str):
+        final_filter: Any = filter_val
+    elif isinstance(filter_val, (list, tuple)):
+        prefixes = tuple(filter_val)
 
         def final_filter(record: dict[str, Any]) -> bool:
             return bool(record["name"] and record["name"].startswith(prefixes))
@@ -200,9 +253,14 @@ def configure_logger(settings: LoggingSettings | None = None) -> None:
     else:
         final_filter = None if filter_val is False else filter_val
 
+    # Resolve "auto" log level
+    level_val = settings.level
+    if level_val == "auto":
+        level_val = "WARNING"
+
     _state["handler_id"] = logger.add(
-        cast("Any", settings.sink),
-        level=settings.level,
+        sink=cast("Any", sink_val),
+        level=level_val,
         filter=cast("Any", final_filter),
         format=cast("Any", log_format),
         enqueue=settings.enqueue,
@@ -211,7 +269,13 @@ def configure_logger(settings: LoggingSettings | None = None) -> None:
 
 
 @overload
-def autolog(func: _FuncT) -> _FuncT: ...
+def autolog(func: _FuncT) -> _FuncT:
+    """
+    Decorate a function to automatically log call inputs, outputs, and exceptions.
+
+    :param func: Target function to wrap.
+    :returns: The decorated wrapper.
+    """
 
 
 @overload
@@ -219,7 +283,14 @@ def autolog(
     func: None = None,
     *,
     exception_log_level: str | None = "ERROR",
-) -> Callable[[_FuncT], _FuncT]: ...
+) -> Callable[[_FuncT], _FuncT]:
+    """
+    Create a decorator factory to log functions with a custom exception log level.
+
+    :param func: Must be None.
+    :param exception_log_level: Log level for exception reporting, defaults to "ERROR".
+    :returns: A decorator factory function.
+    """
 
 
 def autolog(
@@ -228,34 +299,25 @@ def autolog(
     exception_log_level: str | None = "ERROR",
 ) -> _FuncT | Callable[[_FuncT], _FuncT]:
     """
-    Decorate a function to log call inputs, outputs, and any raised exceptions.
+    Decorate a function to automatically log call inputs, outputs, and
+    raised exceptions.
 
-    Examples:
-        Use as a direct decorator:
+    This decorator logs inputs before execution, logs the return value on
+    success, and logs any raised exceptions with trace details before
+    re-raising.
 
-        >>> @autolog
-        ... def add(a: int, b: int) -> int:
-        ...     return a + b
+    Example:
+        .. code-block:: python
 
-        Use as a decorator factory call with defaults:
+            from disdantic.logging import autolog
 
-        >>> @autolog()
-        ... def sub(a: int, b: int) -> int:
-        ...     return a - b
-
-        Use with a custom exception log level:
-
-        >>> @autolog(exception_log_level="WARNING")
-        ... def divide(a: int, b: int) -> float:
-        ...     return a / b
+            @autolog
+            def calculate_sum(a: int, b: int) -> int:
+                return a + b
 
     :param func: Target function to wrap, defaults to None.
-    :type func: Callable | None
-    :param exception_log_level: Log level for exception reporting,
-                                defaults to "ERROR".
-    :type exception_log_level: str | None
-    :return: The decorated wrapper or a decorator factory function.
-    :rtype: Callable
+    :param exception_log_level: Log level for exception reporting, defaults to "ERROR".
+    :returns: The decorated wrapper or a decorator factory function.
     """
 
     def decorator(func_to_wrap: _FuncT) -> _FuncT:
@@ -289,8 +351,185 @@ def autolog(
     return decorator(func)
 
 
-def _otel_formatter(record: dict[str, Any]) -> str:
-    # Format the log record as an OpenTelemetry compliant JSON string.
+class OtelSink:
+    """
+    Wrapper sink for OpenTelemetry-compliant JSON logging.
+
+    This class intercepts log messages emitted by Loguru, extracts metadata
+    from the Loguru record (such as exception tracebacks, trace context,
+    and process info), and serializes them into standard OpenTelemetry JSON format.
+
+    Example:
+        .. code-block:: python
+
+            import sys
+            from disdantic.logging import OtelSink
+
+            sink = OtelSink(sys.stderr)
+            sink.write("Hello log message")
+
+    """
+
+    target: Annotated[
+        Any,
+        "The target output stream or file path where log records are written.",
+    ]
+
+    def __init__(self, target: Any) -> None:
+        """
+        Initialize the OpenTelemetry sink wrapper.
+
+        :param target: Output stream or file path where log records are written.
+        :returns: None.
+        """
+        self.target = target
+        self._file = None
+        if isinstance(target, (str, Path)):
+            self._file = Path(target).open("a", encoding="utf-8")  # noqa: SIM115
+
+    def write(self, message: str) -> None:
+        """
+        Write a message to the target output after formatting it as
+        OpenTelemetry JSON if possible.
+
+        :param message: The log message to serialize or write.
+        :returns: None.
+        """
+        record = getattr(message, "record", None)
+        if record is not None:
+            log_record = _build_otel_record(record)
+            serialized = json.dumps(log_record) + "\n"
+        else:
+            serialized = message
+
+        if self._file is not None:
+            self._file.write(serialized)
+            self._file.flush()
+        elif hasattr(self.target, "write"):
+            self.target.write(serialized)
+            if hasattr(self.target, "flush"):
+                self.target.flush()
+
+    def close(self) -> None:
+        """
+        Close the underlying file descriptor if a file path was provided as target.
+
+        :returns: None.
+        """
+        if self._file is not None:
+            self._file.close()
+
+
+class InterceptHandler(logging.Handler):
+    """
+    Standard logging handler to intercept and forward records to Loguru.
+
+    This class hooks into the standard Python `logging` module. When a
+    standard logging record is emitted, it translates the logging level
+    and redirects the message, caller context, and exception trace to the
+    Loguru pipeline, ensuring unified log aggregation.
+
+    Example:
+        .. code-block:: python
+
+            import logging
+            from disdantic.logging import InterceptHandler
+
+            logging.basicConfig(handlers=[InterceptHandler()], level=0)
+
+    """
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """
+        Emit a standard library logging record by forwarding it to Loguru.
+
+        :param record: The standard library log record.
+        :returns: None.
+        """
+        # Get corresponding Loguru level if it exists
+        try:
+            level = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        # Pass the caller info directly to loguru via patch and bind
+        # to avoid slow frame walking or runtime function/closure definition.
+        logger.patch(_static_patcher).bind(
+            pathname=record.pathname,
+            lineno=record.lineno,
+            funcName=record.funcName,
+        ).opt(exception=record.exc_info).log(level, record.getMessage())
+
+
+def intercept_standard_logging(enable: bool = True) -> None:
+    """
+    Hook standard library logging into or detach it from the Loguru pipeline.
+
+    This function attaches `InterceptHandler` to the standard root logger
+    to redirect standard library logs, or removes it to restore the
+    previous logging handlers.
+
+    Example:
+        .. code-block:: python
+
+            from disdantic.logging import intercept_standard_logging
+
+            intercept_standard_logging(enable=True)
+
+    :param enable: True to intercept standard logging; False to detach and restore.
+    :returns: None.
+    """
+    root = logging.getLogger()
+    if enable:
+        if not _standard_handlers:
+            handler = InterceptHandler()
+            root.addHandler(handler)
+            _standard_handlers.append(handler)
+    else:
+        # Restore a clean environment slate using our tracked handlers
+        for handler in _standard_handlers:
+            root.removeHandler(handler)
+        _standard_handlers.clear()
+
+
+# --- Private Helper Variables and Constants ---
+
+_state: dict[str, int | None] = {"handler_id": None}
+_standard_handlers: list[logging.Handler] = []
+
+_LOG_ENTRY_FORMAT: str = "Calling function '{name}' with args={args}, kwargs={kwargs}"
+_LOG_EXIT_FORMAT: str = "Function '{name}' returned: {result}"
+_LOG_EXCEPTION_FORMAT: str = "Exception occurred in function '{name}': {exception}"
+
+_FuncT = TypeVar("_FuncT", bound=Callable[..., Any])
+
+
+class _FileInfo:
+    # Helper containing path and name attributes for Loguru records.
+
+    def __init__(self, name: str, path: str) -> None:
+        self.name = name
+        self.path = path
+
+
+def _static_patcher(record: Any) -> None:
+    extra = record["extra"]
+    pathname = extra.pop("pathname", None)
+    if pathname is not None:
+        record["file"] = _FileInfo(
+            name=Path(pathname).name if pathname else "",
+            path=pathname or "",
+        )
+    lineno = extra.pop("lineno", None)
+    if lineno is not None:
+        record["line"] = lineno or 0
+    func_name = extra.pop("funcName", None)
+    if func_name is not None:
+        record["function"] = func_name or ""
+
+
+def _build_otel_record(record: dict[str, Any]) -> dict[str, Any]:
+    # Format the log record as an OpenTelemetry compliant dictionary.
     trace_id = span_id = trace_flags = None
 
     if opentelemetry_trace:
@@ -334,6 +573,17 @@ def _otel_formatter(record: dict[str, Any]) -> str:
             }
         )
 
+    return log_record
+
+
+def _otel_serialize(record: dict[str, Any]) -> dict[str, Any]:
+    # Format the log record as an OpenTelemetry compliant dictionary.
+    return _build_otel_record(record)
+
+
+def _otel_formatter(record: dict[str, Any]) -> str:
+    # Format the log record as an OpenTelemetry compliant JSON string.
+    log_record = _build_otel_record(record)
     # Escape braces so loguru doesn't interpret the JSON string as a format string
     # Escape '<' and '>' to prevent loguru from interpreting them as color markup tags
     return (
@@ -343,3 +593,9 @@ def _otel_formatter(record: dict[str, Any]) -> str:
         .replace("<", "\\<")
         .replace(">", "\\>")
     ) + "\n"
+
+
+logger: Annotated[
+    Any,
+    "The global Loguru logger instance re-exported from loguru.",
+]

@@ -12,17 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Settings configuration for the disdantic application.
+"""Configuration settings orchestration for disdantic polymorphism.
 
-This module provides the primary configuration structure for the application
-using Pydantic Settings. It aggregates configuration from multiple sources,
-including environment variables and CLI arguments, and exposes a unified interface
-for safe, typed configuration access across the codebase.
+This module provides the central settings schema utilizing Pydantic Settings
+to manage, validate, and load configuration parameters. It aggregates settings
+from multiple sources, including constructor arguments, environment variables,
+dotenv files, CLI inputs, and pyproject.toml configurations.
+
+The primary interface is the Settings class, which defines validation schemas
+for paths, environment states, registry discriminator configurations, dynamic
+auto-discovery parameters, and validation compilation behaviors.
 """
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from typing import ClassVar, Literal
 
@@ -35,24 +39,29 @@ from pydantic_settings import (
     SettingsConfigDict,
 )
 
-__all__ = ["Settings"]
+__all__ = ["Settings", "get_settings", "reset_settings"]
 
 
 class Settings(BaseSettings):
-    """
-    Configuration state for the application.
+    """Central configuration store and validation schema for the disdantic package.
 
-    This class aggregates and prioritizes configuration from multiple sources,
-    providing a unified state for the application. It is built on top of
-    pydantic-settings to allow validation, default values, and type coercion.
+    This class serves as the single source of truth for runtime configurations,
+    defining default options and loading overrides dynamically across modules.
+    It integrates with Pydantic's BaseSettings to enforce type validation,
+    coercion, and environment prefixing.
 
     Example:
         .. code-block:: python
 
-            from disdantic.settings import Settings
+            from disdantic.settings import Settings, get_settings
 
+            # Initialize a localized settings instance
             settings = Settings(environment="production")
-            print(settings.project_root)
+            assert settings.environment == "production"
+
+            # Retrieve the global settings singleton instance
+            global_settings = get_settings()
+            print(global_settings.project_root)
     """
 
     model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
@@ -65,18 +74,81 @@ class Settings(BaseSettings):
         cli_parse_args=True,
         pyproject_toml_table_header=("tool", "disdantic"),
     )
-    """Pydantic config dict dictating environment prefixes and validation."""
+    """Configuration dictionary defining Pydantic Settings behavior options.
+
+    Controls environment variables parsing prefix, CLI integration arguments,
+    pyproject.toml headers, and assignment validation rules.
+    """
 
     # Core Application Properties
     project_root: Path = Field(
         default_factory=Path.cwd,
         description=(
-            "The root directory of the project. Used for resolving relative paths."
+            "Maps the file system paths and resolves relative configuration files."
         ),
     )
     environment: Literal["development", "staging", "production"] = Field(
         default="development",
-        description="The current deployment environment of the application.",
+        description=(
+            "Configures the active deployment environment, mapping logging "
+            "verbosity and telemetry options."
+        ),
+    )
+
+    # Registry & Serialization Settings
+    default_schema_discriminator: str = Field(
+        default="model_type",
+        description=(
+            "Maps and retrieves model types within Pydantic registries using this "
+            "key name."
+        ),
+    )
+    registry_auto_discovery: bool = Field(
+        default=False,
+        description=(
+            "Enables automatic scanning and loading of subclasses during registry "
+            "initialization."
+        ),
+    )
+
+    # Auto Import Settings
+    auto_packages: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Configures target package namespaces to scan, enabling dynamic model "
+            "discovery across submodules."
+        ),
+    )
+    auto_ignore_modules: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Configures submodule import paths to skip, mapping excluded modules "
+            "during dynamic scanning."
+        ),
+    )
+
+    # Schema Compilation Settings
+    enable_schema_rebuilding: bool = Field(
+        default=True,
+        description=(
+            "Enables dynamic rebuilding of validation schemas, triggering Pydantic "
+            "model schema rebuilds."
+        ),
+    )
+    schema_rebuild_parents: bool = Field(
+        default=True,
+        description=(
+            "Enables parent propagation, mapping validation schema updates up the "
+            "subclass MRO hierarchy."
+        ),
+    )
+
+    # Introspection Settings
+    info_exclude_keys: list[str] = Field(
+        default_factory=lambda: ["info"],
+        description=(
+            "Maps specific fields to skip and exclude during InfoMixin logging."
+        ),
     )
 
     @classmethod
@@ -88,12 +160,17 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        """
-        Customize configuration sources and priority for loading settings.
+        """Customize configuration loaders and define prioritize hierarchy.
 
-        This method overrides the default pydantic-settings loaders to resolve
-        values in the following order: constructor kwargs, pyproject.toml,
-        dotenv files, environment variables, and CLI arguments.
+        This method overrides the default Pydantic source loading priorities
+        to determine the resolving order of configuration options.
+
+        :param settings_cls: The settings class being constructed.
+        :param init_settings: Settings passed directly to the class constructor.
+        :param env_settings: Settings loaded from system environment variables.
+        :param dotenv_settings: Settings loaded from active .env file streams.
+        :param file_secret_settings: Settings loaded from secrets files paths.
+        :returns: A tuple of settings sources ordered by loading priority.
         """
         _ = (file_secret_settings,)  # Allow unused variable to satisfy lint/format
         input_args = init_settings()
@@ -115,11 +192,9 @@ class Settings(BaseSettings):
         )
 
     def __str__(self) -> str:
-        """
-        Return a concise string representation of the settings.
+        """Generate a concise string representation of the settings.
 
-        :return: A concise, human-readable string summary of the settings.
-        :rtype: str
+        :returns: A human-readable string summary of the configuration state.
         """
         return (
             f"Settings(environment={self.environment!r}, "
@@ -127,11 +202,9 @@ class Settings(BaseSettings):
         )
 
     def __repr__(self) -> str:
-        """
-        Return a detailed string representation of the settings.
+        """Generate a detailed string representation of the settings.
 
-        :return: A detailed string representation suitable for debugging.
-        :rtype: str
+        :returns: A detailed debug string representation of the settings.
         """
         return (
             f"Settings("
@@ -139,3 +212,52 @@ class Settings(BaseSettings):
             f"project_root={self.project_root!r}"
             f")"
         )
+
+
+def get_settings() -> Settings:
+    """Retrieve the global Settings singleton instance.
+
+    Uses double-checked locking to resolve initialization race conditions
+    in multi-threaded applications.
+
+    Example:
+        .. code-block:: python
+
+            from disdantic.settings import get_settings
+
+            settings = get_settings()
+            print(settings.environment)
+
+    :returns: The global Settings singleton instance.
+    """
+    global _global_settings  # noqa: PLW0603
+    if _global_settings is None:
+        with _settings_lock:
+            if _global_settings is None:
+                _global_settings = Settings()
+    return _global_settings
+
+
+def reset_settings() -> None:
+    """Reset the global Settings singleton instance to None.
+
+    Forces a complete reload and re-validation of settings on the next
+    invocation of get_settings().
+
+    Example:
+        .. code-block:: python
+
+            from disdantic.settings import reset_settings
+
+            # Evicts active settings from memory
+            reset_settings()
+
+    :returns: None
+    """
+    global _global_settings  # noqa: PLW0603
+    with _settings_lock:
+        _global_settings = None
+
+
+_settings_lock = threading.Lock()
+_global_settings: Settings | None = None
