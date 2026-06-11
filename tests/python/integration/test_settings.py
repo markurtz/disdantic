@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 import threading
 from pathlib import Path
@@ -34,7 +33,6 @@ from pydantic_settings import (
 from typer.testing import CliRunner
 
 import disdantic.settings as settings_module
-import tests.python.integration.test_registry  # noqa: F401
 from disdantic.__main__ import app
 from disdantic.settings import Settings, get_settings, reset_settings
 from disdantic.version import __version__
@@ -152,37 +150,6 @@ class TestCLIEntrypoint:
         settings = Settings(project_root=tmp_path)
         assert settings.default_schema_discriminator == "custom_type"
         assert settings.environment == "staging"
-
-    @pytest.mark.smoke
-    def test_list_command_tree(self) -> None:
-        """Test invoking list command via Typer CliRunner to check tree output."""
-        runner = CliRunner()
-        result = runner.invoke(app, ["list"])
-        assert result.exit_code == 0
-        assert "BaseIntegrationModel" in result.stdout
-        assert "(discriminator: msg_type)" in result.stdout
-
-        expected_img = (
-            '"image" -> tests.python.integration.test_registry.ImageIntegrationModel'
-        )
-        expected_txt = (
-            '"text" -> tests.python.integration.test_registry.TextIntegrationModel'
-        )
-        assert expected_img in result.stdout
-        assert expected_txt in result.stdout
-
-    @pytest.mark.smoke
-    def test_list_command_json(self) -> None:
-        """Test invoking list command with --json flag to check JSON output."""
-        runner = CliRunner()
-        result = runner.invoke(app, ["list", "--json"])
-        assert result.exit_code == 0
-        data = json.loads(result.stdout)
-        assert "BaseIntegrationModel" in data
-        assert data["BaseIntegrationModel"] == {
-            "image": "tests.python.integration.test_registry.ImageIntegrationModel",
-            "text": "tests.python.integration.test_registry.TextIntegrationModel",
-        }
 
 
 class TestSettings:

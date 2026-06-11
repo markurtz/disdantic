@@ -16,9 +16,12 @@
 
 from __future__ import annotations
 
+import pytest
+
 import disdantic
 
 
+@pytest.mark.smoke
 def test_placeholder() -> None:
     """A bare minimum placeholder test that imports disdantic for coverage."""
     assert disdantic.__version__ is not None
