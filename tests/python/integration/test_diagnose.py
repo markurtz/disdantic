@@ -19,6 +19,7 @@ from __future__ import annotations
 import importlib
 import json
 import pkgutil
+import re
 from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -79,9 +80,10 @@ class TestCLIEntrypoint:
         runner = CliRunner()
         result = runner.invoke(app, ["diagnose", "--help"])
         assert result.exit_code == 0
-        assert "Scans all configured auto-discovery packages" in result.stdout
-        assert "--path" in result.stdout
-        assert "--json" in result.stdout
+        clean_stdout = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", result.stdout)
+        assert "Scans all configured auto-discovery packages" in clean_stdout
+        assert "--path" in clean_stdout
+        assert "--json" in clean_stdout
 
     @pytest.mark.sanity
     def test_diagnose_default(self) -> None:

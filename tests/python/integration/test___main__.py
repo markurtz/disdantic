@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -106,8 +107,9 @@ class TestCLIEntrypoint:
         runner = CliRunner()
         result = runner.invoke(app, ["diagnose", "--help"])
         assert result.exit_code == 0
-        assert "--path" in result.stdout
-        assert "--json" in result.stdout
+        clean_stdout = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", result.stdout)
+        assert "--path" in clean_stdout
+        assert "--json" in clean_stdout
 
     @pytest.mark.sanity
     def test_cli_diagnose_default_healthy(self) -> None:
