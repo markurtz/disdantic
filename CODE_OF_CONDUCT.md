@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Code of Conduct for `rustarium`
+# Code of Conduct for `disdantic`
 
 ## Our Pledge
 

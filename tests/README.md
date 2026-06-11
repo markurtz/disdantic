@@ -1,6 +1,6 @@
 # Testing Guide
 
-This directory contains the testing suite for `rustarium`. We use `pytest` as our testing framework and `hatch` to manage test environments and execution.
+This directory contains the testing suite for `disdantic`. We use `pytest` as our testing framework and `hatch` to manage test environments and execution.
 
 ## Test Tiers
 
@@ -30,7 +30,7 @@ We recommend using `hatch` to run tests, as it automatically manages the require
 ### Standard Test Runs
 
 ```bash
-# Run all Python and Rust tests (global cascade)
+# Run all Python tests (global cascade)
 hatch run all:tests
 
 # Run all Python tests
@@ -48,9 +48,6 @@ hatch run python:tests -m "smoke"
 # Run Python tests in a specific file
 hatch run python:tests tests/python/unit/test_version.py
 
-# Run Rust unit and integration tests
-hatch run rust:tests
-
 # Run system end-to-end (e2e) tests
 hatch run project:tests-e2e
 ```
@@ -65,9 +62,6 @@ hatch run python:tests-cov
 
 # Run only Python unit tests with coverage
 hatch run python:tests-unit-cov
-
-# Run all Rust tests with coverage
-hatch run rust:tests-cov
 ```
 
 ## Adding New Tests
@@ -85,7 +79,7 @@ from __future__ import annotations
 
 import pytest
 
-from rustarium import my_module
+from disdantic import my_module
 
 
 @pytest.mark.smoke

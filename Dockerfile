@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # hadolint ignore=DL3013
 RUN pip install --no-cache-dir uv hatch gitversioned
 
-ARG VERSION=0.1.0.dev20260610+49bf3a6
+ARG VERSION=0.1.0.dev20260610+5c44dc4
 
 # Copy package manifests
 COPY pyproject.toml README.md LICENSE NOTICE Dockerfile ./
@@ -56,7 +56,7 @@ FROM python:3.10-slim-bookworm
 # Define standard OCI build parameters
 ARG BUILD_DATE
 ARG GIT_SHA
-ARG VERSION=0.1.0.dev20260610+49bf3a6
+ARG VERSION=0.1.0.dev20260610+5c44dc4
 
 # OCI Metadata Labels
 LABEL org.opencontainers.image.created=$BUILD_DATE \

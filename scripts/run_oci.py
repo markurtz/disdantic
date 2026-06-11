@@ -39,7 +39,7 @@ __all__ = [
 IMAGE_NAME: Annotated[
     str,
     "The name of the OCI image to target for scanning, building, or auditing.",
-] = environ.get("OCI_IMAGE", "rustarium:latest")
+] = environ.get("OCI_IMAGE", "disdantic:latest")
 
 SETTINGS_FILE_NAME: Annotated[
     str,
@@ -49,7 +49,7 @@ SETTINGS_FILE_NAME: Annotated[
 TAR_FILE: Annotated[
     Path,
     "The path to the temporary image tarball used by auditing tools.",
-] = Path("rustarium.tar")
+] = Path("disdantic.tar")
 
 app: Annotated[
     typer.Typer,
@@ -88,7 +88,7 @@ def check_image_exists(image: str) -> bool:
     Check if the specified Docker image exists locally.
 
     Example:
-        >>> check_image_exists("rustarium:latest")
+        >>> check_image_exists("disdantic:latest")
         True
 
     :param image: The name or tag of the Docker image.

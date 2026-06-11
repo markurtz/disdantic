@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 {
-  "name": "rustarium-dev-environment",
+  "name": "disdantic-dev-environment",
   "build": {
     "dockerfile": "Dockerfile",
     "context": "."
@@ -30,15 +30,10 @@
           "editor.codeActionsOnSave": {
             "source.organizeImports": "always"
           }
-        },
-        "[rust]": {
-          "editor.defaultFormatter": "rust-lang.rust-analyzer",
-          "editor.formatOnSave": true
         }
       },
       "extensions": [
         "charliermarsh.ruff",
-        "rust-lang.rust-analyzer",
         "tamasfe.even-better-toml",
         "ms-python.python",
         "ms-python.vscode-pylance",

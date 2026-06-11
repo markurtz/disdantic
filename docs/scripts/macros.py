@@ -2,8 +2,7 @@
 Custom Zensical macros for markdown document processing.
 
 This module defines hooks to dynamically modify documentation pages
-during Zensical builds, such as conditionally embedding files and
-generating links to Rust API reference documentation.
+during Zensical builds, such as conditionally embedding files.
 """
 
 from __future__ import annotations

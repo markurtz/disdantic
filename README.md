@@ -77,9 +77,7 @@ Coming soon!
 
 **Welcome to the disdantic Launch!**
 
-This project has just been instantiated from the template repository. Keep an eye on this section for future release highlights, new features, and community announcements!
-
-<!-- Once your project is active, replace the launch message above with links to your latest release notes or top 3 new features here. -->
+`disdantic` is a lightweight collection of utilities and mixins for Pydantic. It simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate. Keep an eye on this section for future release highlights, new features, and community announcements!
 
 ## Quick Start
 

@@ -31,13 +31,6 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 # Install hatch globally via uv
 RUN uv tool install hatch --to /usr/local/bin
 
-# Install Rust toolchain globally (migrated to standard pathways)
-ENV RUSTUP_HOME=/usr/local/rustup \
-    CARGO_HOME=/usr/local/cargo \
-    PATH=/usr/local/cargo/bin:$PATH
-
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
-
 # Ensure cargo-nextest, maturin, and other essentials are installed globally
 RUN cargo install maturin cargo-nextest
 

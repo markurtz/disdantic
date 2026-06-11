@@ -176,7 +176,7 @@ nosetests.xml
 # ==============================================================================
 
 # Python
-src/rustarium/version.py
+src/disdantic/version.py
 __pycache__/
 *.py[cod]
 *$py.class
@@ -420,4 +420,9 @@ version.py
 
 # Reference backup folder
 .github-old/
+
+# Local act testing payloads
+pull_request_event.json
+push_event.json
+
 

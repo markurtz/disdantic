@@ -44,10 +44,6 @@ Ensure your system meets the requirements below to establish a consistent local 
 
 - **[Git](https://git-scm.com/)**: Version control tool. Refer to the [Git Documentation](https://git-scm.com/doc) for installation instructions.
 - **[Docker](https://www.docker.com/)**: Container management system. Install via the [Docker Installation Guide](https://docs.docker.com/get-docker/).
-- **System-level Build Tools**: Compiling native Rust extensions for Python (via `Maturin`) requires a C compiler and development headers:
-  - **macOS**: Install Xcode Command Line Tools by running `xcode-select --install`.
-  - **Linux (Debian/Ubuntu)**: Install `build-essential`, `clang`, `pkg-config`, and `libssl-dev`.
-  - **Linux (Fedora/RHEL)**: Install `development-tools`, `clang`, `pkg-config`, and `openssl-devel`.
 - **[Python](https://www.python.org/) 3.10 - 3.14**: Core runtime environment. Install via the [Python Downloads Page](https://www.python.org/downloads/).
 - **[uv](https://docs.astral.sh/uv/)**: Fast package installer and resolver. Install via the [uv installation guide](https://docs.astral.sh/uv/getting-started/installation/).
 - **[Hatch](https://hatch.pypa.io/)**: Project workflow orchestrator. Install via the [Hatch installation guide](https://hatch.pypa.io/latest/install/). If you have `uv` installed, we recommend installing Hatch cleanly as a tool using:
@@ -55,10 +51,6 @@ Ensure your system meets the requirements below to establish a consistent local 
   uv tool install hatch
   ```
   to avoid polluting your global system packages.
-- **Rust Dev Tools**: Local security audit tools (`cargo-audit` and `cargo-deny`) are managed via `cargo-run-bin`. The environment bootstraps `cargo-run-bin` automatically on environment creation/update via Hatch's `post-install-commands`. When you run a task in the `rust` environment (such as `hatch run rust:security`), the correct tool versions (locked in the root workspace `Cargo.toml`) will be automatically compiled and cached in the local `.bin/` folder. You can also explicitly trigger the bootstrap command using:
-  ```bash
-  hatch run rust:install-tools
-  ```
 
 > [!TIP]
 > **Editor Autocomplete Setup (Local)**:
@@ -186,20 +178,20 @@ Code coverage runs collect data during test executions and format them into huma
 
 - **Python Coverage**: Configured to output to `coverage/python/` (`PYTHON_COV_DIR`). The test suites automatically output terminal reports and compile Markdown reports (e.g., `coverage_tests-unit.md`).
 
-| Test Suite                 | Python Command                    | Rust Command | OCI Command                   | Project Command                     | All Command                   |
-| :------------------------- | :-------------------------------- | :----------- | :---------------------------- | :---------------------------------- | :---------------------------- |
-| **All Local Tests**        | N/A                               | N/A          | N/A                           | N/A                                 | `hatch run all:tests`         |
-| **All Tests + Coverage**   | N/A                               | N/A          | N/A                           | N/A                                 | `hatch run all:tests-cov`     |
-| **Functional Tests**       | `hatch run python:tests-func`     | N/A          | N/A                           | `hatch run all:tests-func`          |                               |
-| **Func Tests + Coverage**  | `hatch run python:tests-func-cov` | N/A          | N/A                           | `hatch run all:tests-func-cov`      |                               |
-| **Unit Tests**             | `hatch run python:tests-unit`     | N/A          | N/A                           | `hatch run all:tests-unit`          |                               |
-| **Unit Tests + Coverage**  | `hatch run python:tests-unit-cov` | N/A          | N/A                           | `hatch run all:tests-unit-cov`      |                               |
-| **Integration Tests**      | `hatch run python:tests-int`      | N/A          | `hatch run project:tests-int` | `hatch run all:tests-int`           |                               |
-| **Int Tests + Coverage**   | `hatch run python:tests-int-cov`  | N/A          | N/A                           | `hatch run all:tests-int-cov`       |                               |
-| **End-to-End Tests**       | `hatch run python:tests-e2e`      | N/A          | `hatch run oci:tests-e2e`     | `hatch run project:tests-e2e`       | `hatch run all:tests-e2e`     |
-| **E2E Tests + Coverage**   | `hatch run python:tests-e2e-cov`  | N/A          | `hatch run oci:tests-e2e-cov` | `hatch run project:tests-e2e-cov`   | `hatch run all:tests-e2e-cov` |
-| **Link Checks**            | N/A                               | N/A          | N/A                           | `hatch run project:link-checks`     | N/A                           |
-| **Link Checks + Coverage** | N/A                               | N/A          | N/A                           | `hatch run project:link-checks-cov` | N/A                           |
+| Test Suite                 | Python Command                    | OCI Command                   | Project Command                     | All Command                   |
+| :------------------------- | :-------------------------------- | :---------------------------- | :---------------------------------- | :---------------------------- |
+| **All Local Tests**        | N/A                               | N/A                           | N/A                                 | `hatch run all:tests`         |
+| **All Tests + Coverage**   | N/A                               | N/A                           | N/A                                 | `hatch run all:tests-cov`     |
+| **Functional Tests**       | `hatch run python:tests-func`     | N/A                           | `hatch run all:tests-func`          |                               |
+| **Func Tests + Coverage**  | `hatch run python:tests-func-cov` | N/A                           | `hatch run all:tests-func-cov`      |                               |
+| **Unit Tests**             | `hatch run python:tests-unit`     | N/A                           | `hatch run all:tests-unit`          |                               |
+| **Unit Tests + Coverage**  | `hatch run python:tests-unit-cov` | N/A                           | `hatch run all:tests-unit-cov`      |                               |
+| **Integration Tests**      | `hatch run python:tests-int`      | `hatch run project:tests-int` | `hatch run all:tests-int`           |                               |
+| **Int Tests + Coverage**   | `hatch run python:tests-int-cov`  | N/A                           | `hatch run all:tests-int-cov`       |                               |
+| **End-to-End Tests**       | `hatch run python:tests-e2e`      | `hatch run oci:tests-e2e`     | `hatch run project:tests-e2e`       | `hatch run all:tests-e2e`     |
+| **E2E Tests + Coverage**   | `hatch run python:tests-e2e-cov`  | `hatch run oci:tests-e2e-cov` | `hatch run project:tests-e2e-cov`   | `hatch run all:tests-e2e-cov` |
+| **Link Checks**            | N/A                               | N/A                           | `hatch run project:link-checks`     | N/A                           |
+| **Link Checks + Coverage** | N/A                               | N/A                           | `hatch run project:link-checks-cov` | N/A                           |
 
 *\* Note: While Hatch commands for `N/A` cells can technically be run (and will print a message stating that the test suite is not defined for that environment), they have no logical test targets or execution paths. They are marked `N/A` for clarity.*
 
@@ -220,20 +212,16 @@ Code coverage runs collect data during test executions and format them into huma
 
 - **Methodology & Rationale**:
   - **Python**: Runs isolated tests under `tests/python/unit` via `pytest`. Focuses on validating individual modules and class behaviors.
-  - **Rust**: Runs isolated tests using `cargo test --lib --bins`. Validates pure internal Rust crate logic.
 - **Expected Outputs & Locations**:
   - **Python**: Outputs `coverage/python/coverage_tests-unit.md`.
-  - **Rust**: Outputs `coverage/rust/coverage_tests-unit.md` and `coverage/rust/coverage_tests-unit.json`.
 
 #### Integration Testing (`tests-int` / `tests-int-cov`)
 
 - **Methodology & Rationale**:
   - **Python**: Runs tests under `tests/python/integration` via `pytest` to verify interactions between Python modules.
-  - **Rust**: Runs integration test targets defined under the `tests/` directory of the Rust crate via `cargo test --test '*'` to verify cross-module/macro integration.
   - **Project**: Runs documentation code block tests. It utilizes `scripts/generate_doc_tests.py` to parse Markdown files and compile code block assertions under `.tests/docs` (`DOC_TESTS_PATH`), which are then executed using `pytest`.
 - **Expected Outputs & Locations**:
   - **Python**: Outputs `coverage/python/coverage_tests-int.md`.
-  - **Rust**: Outputs `coverage/rust/coverage_tests-int.md` and `coverage/rust/coverage_tests-int.json`.
   - **Project**: Verifies doc tests compile and pass; outputs progress to stdout.
 
 #### End-to-End Testing (`tests-e2e` / `tests-e2e-cov`)
@@ -318,27 +306,9 @@ Hatch environments make it easy to target a specific test directory, sub-package
   hatch run python:tests-func tests/python/integration/test_utils.py
   ```
 
-##### Rust Test Categories
-
-For Rust tests, Cargo does not have native marker annotations. We achieve the same test scheduling by filtering tests based on name substrings. When invoking the Rust test suite in CI/CD via the `.github/actions/rust/tests` action:
-
-- `test-category: smoke` maps to running `cargo test -- smoke`, targeting tests with `smoke` in their name (e.g., `fn test_smoke_orchestrator()`).
-- `test-category: sanity` maps to running `cargo test -- sanity`.
-- `test-category: regression` maps to running `cargo test -- regression`.
-
-Always ensure that your Rust tests are named with one of these substrings if they fall under a specific category so they are correctly picked up by CI schedules.
-
-> [!WARNING]
-> **Rust Test Substring Matching Danger**:
-> Cargo's substring filter matches *any part* of a test's name. This carries a collision risk: for example, a test named `test_heavy_regression_smoke_system` will match `smoke` and execute in the smoke test pipeline.
-> To prevent accidental execution of heavy tests in quick pipelines:
->
-> 1. Use distinct, unambiguous suffixes or prefixes for tests (e.g. `_smoke`, `_sanity`, `_regression`) and avoid mixing these keywords.
-> 1. For larger test suites, isolate tests into separate integration test binaries under the `tests/` directory (e.g. `tests/smoke.rs`, `tests/sanity.rs`, `tests/regression.rs`) and run them directly (e.g. `cargo test --test smoke`) to achieve strict isolation.
-
 ### Documentation Workflows
 
-Our documentation is managed as code. It includes auto-generated CLI references, compiled Rust API reference pages, and a unified project site built using **[Zensical](https://zensical.org)**.
+Our documentation is managed as code. It includes auto-generated CLI references and a unified project site built using **[Zensical](https://zensical.org)**.
 
 > [!NOTE]
 > **Zensical Documentation Tool**:
@@ -353,7 +323,7 @@ Our documentation is managed as code. It includes auto-generated CLI references,
 #### Project Website Compilation
 
 - **Tools / Methodology / Rationale**: Compiles the final developer documentation site via **Zensical**, incorporating the general Markdown guides, Python CLI docs.
-- **Command**: `hatch run project:docs` (or `hatch run all:docs` to generate Python and Rust docs and compile project docs together)
+- **Command**: `hatch run project:docs` (or `hatch run all:docs` to generate Python docs and compile project docs together)
 - **Expected Outputs & Locations**: Static build files compiled to the `site/` directory.
 
 > [!TIP]
@@ -372,9 +342,9 @@ Our documentation is managed as code. It includes auto-generated CLI references,
 
 These workflows handle compiling code, bundling extension modules, and building containerized runtimes for distribution.
 
-#### Maturin Python Package Build
+#### Python Package Build
 
-- **Tools / Methodology / Rationale**: Uses Hatchling and bundle Python distribution wheel packages.
+- **Tools / Methodology / Rationale**: Uses Hatchling to bundle Python distribution packages.
 - **Command**: `hatch build`
 - **Expected Outputs & Locations**: Built source distributions and `.whl` files output to the `dist/` directory.
 
@@ -417,7 +387,7 @@ Our pipelines use a highly modular and DRY architecture to avoid duplication of 
 
 - **Python Versioning & Parameters**:
 
-  - All composite actions (Python, Rust, OCI, and Project) support an optional `python-version` parameter.
+  - All composite actions (Python, OCI, and Project) support an optional `python-version` parameter.
   - If omitted, actions standardize on the oldest supported version (default: `"3.10"`).
   - All composite actions using change detection (`[dorny/paths-filter](https://github.com/dorny/paths-filter)`) support a `force-run` parameter (default: `"false"`). When set to `"true"`, it bypasses path-filtering check gates and executes the steps unconditionally (used in scheduled and release workflows).
 
@@ -498,23 +468,47 @@ Run `act` from the repository root:
 
 #### Mocking Event Payloads (Change Detection)
 
-Because composite actions use `dorny/paths-filter` to detect path-level changes, running `act` directly will fail if the required event metadata is missing. You can provide a mock payload (`event.json`) to simulate the GitHub event context:
+Because composite actions use `dorny/paths-filter` to detect path-level changes, running `act` directly will fail if the required event metadata is missing. To solve this, the repository contains two mock payload files that simulate the GitHub event context:
 
-1. Create an `event.json` in the root of the repository:
+1. **`pull_request_event.json`** for simulating PR events:
    ```json
    {
+     "pull_request": {
+       "number": 1,
+       "head": {
+         "ref": "feat/repo-setup",
+         "sha": "HEAD"
+       },
+       "base": {
+         "ref": "main",
+         "sha": "main"
+       }
+     }
+   }
+   ```
+   *Usage Example:*
+   ```bash
+   act pull_request -W .github/workflows/pipeline-development.yml -j project-quality -e pull_request_event.json --container-architecture linux/amd64
+   ```
+
+2. **`push_event.json`** for simulating direct push events (e.g. to the `main` branch):
+   ```json
+   {
+     "ref": "refs/heads/main",
+     "before": "0000000000000000000000000000000000000000",
+     "after": "HEAD",
      "repository": {
        "default_branch": "main"
      }
    }
    ```
-1. Pass the payload file using the `-e` flag:
+   *Usage Example:*
    ```bash
-   act push -W .github/workflows/pipeline-main.yml -j project-quality -e event.json --container-architecture linux/amd64
+   act push -W .github/workflows/pipeline-main.yml -j init-gate -e push_event.json --container-architecture linux/amd64
    ```
 
 > [!NOTE]
-> `act` runs steps inside Docker containers that simulate GitHub environments. By default, it uses a medium-sized Ubuntu image, but you can specify a fuller image using `act -P ubuntu-latest=catthehacker/ubuntu:act-latest`.
+> `act` runs steps inside Docker containers that simulate GitHub environments. By default, it uses a medium-sized Ubuntu image, but you can specify a fuller image using `act -P ubuntu-latest=catthehacker/ubuntu:act-latest`. Both event payload files are automatically ignored in `.gitignore`.
 
 ### Security & Code Scanning Gates
 
