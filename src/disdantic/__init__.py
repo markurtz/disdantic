@@ -13,25 +13,68 @@
 # limitations under the License.
 
 """
-Core initialization module for the disdantic package.
+Package initialization and unified entry point for the disdantic library.
 
-This module serves as the primary entry point for the library, exposing the public
-API components such as logging settings, application configuration, and version
-metadata for convenient access by downstream consumers.
+This library simplifies registry management, polymorphic serialization,
+dynamic schema generation, and automatic module discovery. It provides
+mixins and managers to register and retrieve subclasses dynamically,
+making it easier to construct polymorphic data structures without manual
+boilerplate.
+
+The core architecture exposes base components including `RegistryMixin` and
+`InfoMixin` for behavior tracking, `LazyLoader` and `LazyProxy` for
+performance-focused import loading, along with `configure_logger` and
+package-level `Settings` for system initialization.
 """
 
 from __future__ import annotations
 
+from typing import Annotated
+
+from .diagnose import (
+    DiagnosticsReport,
+    RegistryDiagnostics,
+    RegistryModelInfo,
+    verify_registries,
+)
+from .importer import AutoImporterMixin
+from .introspection import InfoMixin
+from .loading import LazyLoader, LazyProxy
 from .logging import LoggingSettings, configure_logger, logger
-from .settings import Settings
-from .version import __version__
+from .model import ReloadableBaseModel
+from .registry import PydanticClassRegistryMixin, RegistryManager, RegistryMixin
+from .schema import get_registry_schema
+from .settings import Settings, get_settings, reset_settings
+from .singleton import SingletonMeta
+from .version import __version__ as _version
+
+__version__: Annotated[
+    str,
+    "The package version identifier string conforming to PEP 440 specifications.",
+] = _version
 
 __all__ = [
+    "AutoImporterMixin",
+    "DiagnosticsReport",
+    "InfoMixin",
+    "LazyLoader",
+    "LazyProxy",
     "LoggingSettings",
+    "PydanticClassRegistryMixin",
+    "RegistryDiagnostics",
+    "RegistryManager",
+    "RegistryMixin",
+    "RegistryModelInfo",
+    "ReloadableBaseModel",
     "Settings",
+    "SingletonMeta",
     "__version__",
     "configure_logger",
+    "get_registry_schema",
+    "get_settings",
     "logger",
+    "reset_settings",
+    "verify_registries",
 ]
 
 configure_logger()

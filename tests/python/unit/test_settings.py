@@ -28,7 +28,7 @@ from pydantic_settings import (
     PyprojectTomlConfigSettingsSource,
 )
 
-from disdantic.settings import Settings
+from disdantic.settings import Settings, get_settings, reset_settings
 
 
 class MockSettingsSource(PydanticBaseSettingsSource):
@@ -62,12 +62,26 @@ class TestSettings:
         assert Settings.model_config.get("env_prefix") == "DISDANTIC__"
         assert "project_root" in Settings.model_fields
         assert "environment" in Settings.model_fields
+        assert "default_schema_discriminator" in Settings.model_fields
+        assert "registry_auto_discovery" in Settings.model_fields
+        assert "auto_packages" in Settings.model_fields
+        assert "auto_ignore_modules" in Settings.model_fields
+        assert "enable_schema_rebuilding" in Settings.model_fields
+        assert "schema_rebuild_parents" in Settings.model_fields
+        assert "info_exclude_keys" in Settings.model_fields
 
     @pytest.mark.sanity
     def test_initialization(self, valid_instances: Settings) -> None:
         """Test proper initialization from the fixture."""
         assert valid_instances.environment in {"development", "staging", "production"}
         assert isinstance(valid_instances.project_root, Path)
+        assert valid_instances.default_schema_discriminator == "model_type"
+        assert not valid_instances.registry_auto_discovery
+        assert valid_instances.auto_packages == []
+        assert valid_instances.auto_ignore_modules == []
+        assert valid_instances.enable_schema_rebuilding
+        assert valid_instances.schema_rebuild_parents
+        assert valid_instances.info_exclude_keys == ["info"]
 
     @pytest.mark.sanity
     def test_invalid_initialization_values(self) -> None:
@@ -82,6 +96,10 @@ class TestSettings:
         recreated_settings = Settings.model_validate(data_dict)
         assert recreated_settings.environment == valid_instances.environment
         assert recreated_settings.project_root == valid_instances.project_root
+        assert (
+            recreated_settings.default_schema_discriminator
+            == valid_instances.default_schema_discriminator
+        )
 
     @pytest.mark.regression
     def test_settings_customise_sources(self) -> None:
@@ -112,3 +130,15 @@ class TestSettings:
         assert "Settings(" in repr_val
         assert "environment=" in repr_val
         assert "project_root=" in repr_val
+
+    @pytest.mark.sanity
+    def test_global_settings_access(self) -> None:
+        """Test the global get_settings() and reset_settings() utilities."""
+        reset_settings()
+        settings1 = get_settings()
+        settings2 = get_settings()
+        assert settings1 is settings2
+
+        reset_settings()
+        settings3 = get_settings()
+        assert settings3 is not settings1
