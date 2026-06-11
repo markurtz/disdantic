@@ -239,7 +239,8 @@ class RegistryMixin(Generic[RegistryObjT], AutoImporterMixin):
         """
         with cls._registry_lock:
             if cls.is_auto_discovery_enabled():
-                cls.auto_populate_registry()
+                with contextlib.suppress(ValueError):
+                    cls.auto_populate_registry()
             return tuple(cls.registry.values())
 
     @classmethod
@@ -258,6 +259,9 @@ class RegistryMixin(Generic[RegistryObjT], AutoImporterMixin):
         :returns: True if the identifier is registered, False otherwise.
         """
         with cls._registry_lock:
+            if cls.is_auto_discovery_enabled():
+                with contextlib.suppress(ValueError):
+                    cls.auto_populate_registry()
             return name in cls.registry or name.lower() in cls._lower_registry
 
     @classmethod
@@ -277,6 +281,9 @@ class RegistryMixin(Generic[RegistryObjT], AutoImporterMixin):
         :returns: The registered object if found, or None.
         """
         with cls._registry_lock:
+            if cls.is_auto_discovery_enabled():
+                with contextlib.suppress(ValueError):
+                    cls.auto_populate_registry()
             return cls.registry.get(name) or cls._lower_registry.get(name.lower())
 
     @classmethod
