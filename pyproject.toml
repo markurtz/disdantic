@@ -1,91 +1,130 @@
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 [build-system]
-requires = ["hatchling", "gitversioned[hatchling]"]
+requires = ["hatchling", "gitversioned"]
 build-backend = "hatchling.build"
 
 [project]
-name = "template-python"
+name = "disdantic"
 dynamic = ["version"]
-description = "An opinionated, production-ready Apache 2.0 template repository for bootstrapping modern software projects."
+description = "A lightweight collection of utilities and mixins for Pydantic. disdantic simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
-authors = [{ name = "markurtz" }]
+authors = [{ name = "Mark Kurtz" }]
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "click>=8.0.0",
-    "loguru>=0.7.0",
-    "pydantic>=2.0.0",
-    "pydantic-settings>=2.0.0",
+  "loguru~=0.7",
+  "pydantic~=2.0",
+  "pydantic-settings~=2.0",
+  "tomli~=2.0; python_version < '3.11'",
+  "tstr>=0.4.1",
+  "typer>=0.12",
 ]
 
 [project.optional-dependencies]
-opentelemetry = [
-    "opentelemetry-api>=1.0.0",
-    "opentelemetry-sdk>=1.0.0",
-]
+opentelemetry = ["opentelemetry-api>=1.0.0", "opentelemetry-sdk>=1.0.0"]
 
 [dependency-groups]
-dev = [
-    # testing
-    "pytest~=9.0",
-    "pytest-asyncio~=1.3",
-    "pytest-cov~=7.1",
-    "pytest-mock~=3.15",
-    "respx~=0.23",
-
-    # code quality
-    "mypy~=2.1",
-    "pre-commit~=4.1",
-    "ruff~=0.15",
-
-    # docs quality
-    "mdformat~=1.0",
-    "mdformat-frontmatter~=2.0",
-    "mdformat-gfm~=1.0",
-
-    # general and configurations
-    "yamlfix~=1.19",
+test = [
+  "pytest>=9.0.3,<10",
+  "pytest-asyncio>=1.4.0,<2",
+  "pytest-cov>=7.1.0,<8",
+  "pytest-mock>=3.15.1,<4",
+  "respx>=0.23.1,<1",
+  "pytest-xdist>=3.5,<4",
+]
+lint = [
+  "ty",
+  "ruff>=0.15,<1",
+  "mdformat>=1.0,<2",
+  "mdformat-frontmatter>=2.0,<3",
+  "mdformat-gfm>=1.0,<2",
+  "mdformat-footnote>=0.1.1,<1",
+  "mdformat-gfm-alerts>=1.0.1,<3",
+  "yamllint>=1.35,<2",
+  "urlchecker>=0.0.35",
+  "phmdoctest>=1.4,<2",
+  "yamlfix>=1.19,<2",
+  "taplo",
 ]
 docs = [
-    # documentation
-    "mike~=2.2",
-    "mkdocs~=1.6",
-    "mkdocstrings[python]~=1.0",
-    "mkdocs-gen-files~=0.5",
-    "mkdocs-literate-nav~=0.6",
-    "mkdocs-macros-plugin~=1.5",
-    "mkdocs-material~=9.7",
-    "mkdocs-minify-plugin~=0.8",
-    "mkdocs-nav-weight~=0.3",
-    "mkdocs-section-index~=0.3",
-    "pymdown-extensions~=10.21",
+  "zensical>=0.0.40",
+  "mkdocs-gen-files>=0.5.0",
+  "mkdocstrings>=0.24.0",
+  "mkdocstrings-python>=1.9.0",
+  # Temporary bridge: Zensical compatible fork of mike.
+  # Update to Zensical native versioning once stabilized.
+  "mike @ git+https://github.com/squidfunk/mike.git",
+]
+security = [
+  "detect-secrets>=1.5,<2",
+  "checkov>=3.0,<4",
+  "semgrep>=1.73,<2",
+  "pip-audit>=2.7,<3",
+]
+environment = ["hatch>=1.12.0", "gitversioned>=0.2.0"]
+dev = [
+  { include-group = "test" },
+  { include-group = "lint" },
+  { include-group = "docs" },
+  { include-group = "security" },
+  { include-group = "environment" },
 ]
 
 [project.scripts]
-template-python = "template_python.__main__:main"
+disdantic = "disdantic.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/markurtz/template-python"
-Repository = "https://github.com/markurtz/template-python.git"
-Issues = "https://github.com/markurtz/template-python/issues"
-Documentation = "https://markurtz.github.io/template-python/"
+Homepage = "https://github.com/markurtz/disdantic"
+Repository = "https://github.com/markurtz/disdantic.git"
+Issues = "https://github.com/markurtz/disdantic/issues"
+Documentation = "https://markurtz.github.io/disdantic/"
+
+
+# ==============================================================================
+# Versioning
+# ==============================================================================
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/disdantic"]
+artifacts = ["src/disdantic/version.py"]
+
+[tool.hatch.build.targets.sdist]
+artifacts = ["src/disdantic/version.py"]
 
 [tool.hatch.version]
 source = "gitversioned"
-
-[tool.gitversioned]
 source_type = ["tag"]
+output = "src/disdantic/version.py"
 
 [tool.gitversioned.auto_increment]
 pre = "minor"
 dev = "patch"
+
+[tool.gitversioned.overrides.docker]
+output = "Dockerfile"
+output_strategies = { type = "regex", pattern = '''(?m)^(\s*ARG\s+VERSION\s*=\s*)(?P<version>[^\s\n]+)''' }
+
 
 # ==============================================================================
 # Hatch Environment Configurations
@@ -94,106 +133,310 @@ dev = "patch"
 [tool.hatch.envs.default]
 dependency-groups = ["dev"]
 
-# ------------------------------------------------------------------------------
-# Quality & Style: Ruff, mdformat, yamlfix
-# ------------------------------------------------------------------------------
-[tool.hatch.envs.lint]
-detached = true
-dependency-groups = ["dev"]
+[tool.hatch.envs.default.env-vars]
+COVERAGE_CORE = "pytrace"
+GITVERSIONED__LOGGING__LEVEL = "ERROR"
+PYTHONPATH = "."
+PYTHON_TARGETS = "docs examples scripts src tests"
+OCI_IMAGE = "disdantic:latest"
+MDFORMAT_TARGETS = ".devcontainer/ .github/ docs/*.md docs/community/ docs/examples/ docs/getting-started/ docs/guides/ examples/ scripts/ src/ tests/ *.md"
+YAML_TARGETS = ".devcontainer/ .github/ docs/ examples/ scripts/ src/ tests/ *.yml *.yaml"
+TOML_TARGETS = ".devcontainer/ .github/ docs/ examples/ scripts/ src/ tests/ *.toml"
+PYTHON_SRC = "disdantic"
+PYTHON_UNIT_TESTS = "tests/python/unit"
+PYTHON_INT_TESTS = "tests/python/integration"
+PYTHON_COV_DIR = "coverage/python"
+E2E_TESTS = "tests/e2e"
+DOC_TESTS_PATH = ".tests/docs"
+SECRETS_BASELINE = ".detect-secrets.scan.json"
+RUN_OCI_SCRIPT = "scripts/run_oci.py"
+CHECK_LINKS_SCRIPT = "scripts/check_links.py"
+GENERATE_DOC_TESTS_SCRIPT = "scripts/generate_doc_tests.py"
 
-[tool.hatch.envs.lint.scripts]
-# Quality checks (Read-only)
-check = [
-  "ruff check {args:docs examples scripts src tests .github}",
-  "ruff format --check {args:docs examples scripts src tests .github}",
-  "mdformat --check {args:docs examples scripts src tests .github *.md}",
-  "yamlfix --check {args:docs examples scripts src tests .github *.yml .*.yaml}",
+[tool.hatch.envs.all]
+template = "default"
+builder = true
+
+[tool.hatch.envs.all.scripts]
+lint = [
+  "hatch run python:lint {args}",
+  "hatch run oci:lint {args}",
+  "hatch run project:lint {args}",
 ]
-pre-commit = "SKIP=type-check pre-commit run --all-files --show-diff-on-failure"
-# Style runs (Applies fixes)
 format = [
-  "ruff check --fix {args:docs examples scripts src tests .github}",
-  "ruff format {args:docs examples scripts src tests .github}",
-  "mdformat {args:docs examples scripts src tests .github *.md}",
-  "yamlfix {args:docs examples scripts src tests .github *.yml .*.yaml}",
+  "hatch run python:format {args}",
+  "hatch run oci:format {args}",
+  "hatch run project:format {args}",
+]
+types = [
+  "hatch run python:types {args}",
+  "hatch run oci:types {args}",
+  "hatch run project:types {args}",
+]
+security = [
+  "hatch run python:security {args}",
+  "hatch run oci:security {args}",
+  "hatch run project:security {args}",
+]
+quality = [
+  "hatch run python:quality {args}",
+  "hatch run oci:quality {args}",
+  "hatch run project:quality {args}",
+]
+build = [
+  "hatch build {args}",
+  "hatch run oci:build {args}",
+  "hatch run project:docs {args}",
+]
+tests = ["hatch run tests-func {args}", "hatch run tests-e2e {args}"]
+tests-cov = [
+  "hatch run tests-func-cov {args}",
+  "hatch run tests-e2e-cov {args}",
+]
+tests-func = [
+  "hatch run python:tests-func {args}",
+  "hatch run oci:tests-func {args}",
+  "hatch run project:tests-func {args}",
+]
+tests-func-cov = [
+  "hatch run python:tests-func-cov {args}",
+  "hatch run oci:tests-func-cov {args}",
+  "hatch run project:tests-func-cov {args}",
+]
+tests-unit = [
+  "hatch run python:tests-unit {args}",
+  "hatch run oci:tests-unit {args}",
+  "hatch run project:tests-unit {args}",
+]
+tests-unit-cov = [
+  "hatch run python:tests-unit-cov {args}",
+  "hatch run oci:tests-unit-cov {args}",
+  "hatch run project:tests-unit-cov {args}",
+]
+tests-int = [
+  "hatch run python:tests-int {args}",
+  "hatch run oci:tests-int {args}",
+  "hatch run project:tests-int {args}",
+]
+tests-int-cov = [
+  "hatch run python:tests-int-cov {args}",
+  "hatch run oci:tests-int-cov {args}",
+  "hatch run project:tests-int-cov {args}",
+]
+tests-e2e = [
+  "hatch run python:tests-e2e {args}",
+  "hatch run oci:tests-e2e {args}",
+  "hatch run project:tests-e2e {args}",
+]
+tests-e2e-cov = [
+  "hatch run python:tests-e2e-cov {args}",
+  "hatch run oci:tests-e2e-cov {args}",
+  "hatch run project:tests-e2e-cov {args}",
+]
+docs = [
+  "hatch run python:docs {args}",
+  "hatch run oci:docs {args}",
+  "hatch run project:docs {args}",
+]
+docs-serve = ["hatch run docs {args}", "hatch run project:docs-serve {args}"]
+
+# ==============================================================================
+# Python Environment
+# ==============================================================================
+[tool.hatch.envs.python]
+template = "default"
+builder = true
+
+[tool.hatch.envs.python.scripts]
+lint = [
+  "ruff check {args:{env:PYTHON_TARGETS}}",
+  "ruff format --check {args:{env:PYTHON_TARGETS}}",
+]
+format = [
+  "ruff check --fix {args:{env:PYTHON_TARGETS}}",
+  "ruff format {args:{env:PYTHON_TARGETS}}",
+]
+types = "ty check {args:{env:PYTHON_TARGETS}}"
+security = [
+  "semgrep scan --error {args}",
+  "pip-audit {args}",
+  "ruff check --select S {args:{env:PYTHON_TARGETS}}",
+]
+quality = [
+  "hatch run python:format {args}",
+  "hatch run python:lint {args}",
+  "hatch run python:types {args}",
+  "hatch run python:security {args}",
+]
+tests-func = "python -m pytest {env:PYTHON_UNIT_TESTS} {env:PYTHON_INT_TESTS} {args}"
+tests-func-cov = [
+  "python -c \"import pathlib; pathlib.Path('{env:PYTHON_COV_DIR}').mkdir(parents=True, exist_ok=True)\"",
+  "python -m pytest --cov={env:PYTHON_SRC} --cov-context=test --cov-report=term --cov-report=markdown:{env:PYTHON_COV_DIR}/coverage_tests-func.md {env:PYTHON_UNIT_TESTS} {env:PYTHON_INT_TESTS} {args}",
+  "coverage report --contexts=\".*tests/python/unit/.*|^$\" --format=markdown > {env:PYTHON_COV_DIR}/coverage_tests-unit.md",
+  "coverage report --contexts=\".*tests/python/integration/.*|^$\" --format=markdown > {env:PYTHON_COV_DIR}/coverage_tests-int.md",
+  "python -c \"import pathlib; [p.write_text('\\n'.join(line for line in p.read_text().splitlines() if not line.startswith('Combined'))) for p in (pathlib.Path('{env:PYTHON_COV_DIR}/coverage_tests-unit.md'), pathlib.Path('{env:PYTHON_COV_DIR}/coverage_tests-int.md')) if p.exists()]\"",
+]
+tests-unit = "python -m pytest {env:PYTHON_UNIT_TESTS} {args}"
+tests-unit-cov = [
+  "python -c \"import pathlib; pathlib.Path('{env:PYTHON_COV_DIR}').mkdir(parents=True, exist_ok=True)\"",
+  "python -m pytest --cov={env:PYTHON_SRC} --cov-report=term --cov-report=markdown:{env:PYTHON_COV_DIR}/coverage_tests-unit.md {env:PYTHON_UNIT_TESTS} {args}",
+]
+tests-int = "python -m pytest {env:PYTHON_INT_TESTS} {args}"
+tests-int-cov = [
+  "python -c \"import pathlib; pathlib.Path('{env:PYTHON_COV_DIR}').mkdir(parents=True, exist_ok=True)\"",
+  "python -m pytest --cov={env:PYTHON_SRC} --cov-report=term --cov-report=markdown:{env:PYTHON_COV_DIR}/coverage_tests-int.md {env:PYTHON_INT_TESTS} {args}",
+]
+tests-e2e = [
+  "hatch build",
+  "pip install --force-reinstall --no-deps --no-index --find-links=dist disdantic",
+  "python -m pytest {env:E2E_TESTS} {args}",
+]
+tests-e2e-cov = [
+  "python -c \"import pathlib; pathlib.Path('{env:PYTHON_COV_DIR}').mkdir(parents=True, exist_ok=True)\"",
+  "hatch build",
+  "pip install --force-reinstall --no-deps --no-index --find-links=dist disdantic",
+  "python -m pytest --cov=disdantic --cov-report=term --cov-report=markdown:{env:PYTHON_COV_DIR}/coverage_tests-e2e.md {env:E2E_TESTS} {args}",
+]
+docs = [
+  "python -c \"import pathlib; pathlib.Path('.docs').mkdir(exist_ok=True)\"",
+  "typer src/disdantic/__main__.py utils docs --name disdantic --output .docs/cli.md",
 ]
 
-# ------------------------------------------------------------------------------
-# Type Checking: Mypy
-# ------------------------------------------------------------------------------
-[tool.hatch.envs.types]
-# Needs project dependencies to resolve imports
+# ==============================================================================
+# OCI Environment
+# ==============================================================================
+[tool.hatch.envs.oci]
 template = "default"
 
-[tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:examples scripts src tests}"
+[tool.hatch.envs.oci.scripts]
+lint = [
+  "python {env:RUN_OCI_SCRIPT} hadolint {args}",
+  "python {env:RUN_OCI_SCRIPT} compose-config {args}",
+  "python {env:RUN_OCI_SCRIPT} dclint {args}",
+]
+format = "python {env:RUN_OCI_SCRIPT} dclint --fix {args}"
+types = "echo '[INFO] Type checking is not applicable for the OCI environment' {args}"
+security = [
+  "python {env:RUN_OCI_SCRIPT} dockle {args}",
+  "python {env:RUN_OCI_SCRIPT} trivy {args}",
+]
+quality = [
+  "hatch run oci:format {args}",
+  "hatch run oci:lint {args}",
+  "hatch run oci:types {args}",
+  "hatch run oci:security {args}",
+]
+tests-func = [
+  "hatch run oci:tests-unit {args}",
+  "hatch run oci:tests-int {args}",
+]
+tests-func-cov = [
+  "hatch run oci:tests-unit-cov {args}",
+  "hatch run oci:tests-int-cov {args}",
+]
+tests-unit = "echo '[INFO] No unit tests are defined for the OCI environment' {args}"
+tests-unit-cov = [
+  "hatch run oci:tests-unit {args}",
+  "echo '[INFO] No coverage analysis is applicable for unit tests in the OCI environment'",
+]
+tests-int = "echo '[INFO] No integration tests are defined for the OCI environment' {args}"
+tests-int-cov = [
+  "hatch run oci:tests-int {args}",
+  "echo '[INFO] No coverage analysis is applicable for integration tests in the OCI environment'",
+]
+tests-e2e = "python {env:RUN_OCI_SCRIPT} cstest {args}"
+tests-e2e-cov = [
+  "hatch run oci:tests-e2e {args}",
+  "echo '[INFO] No coverage analysis is applicable for E2E tests in the OCI environment'",
+]
+docs = "echo '[INFO] No documentation is defined for the OCI environment' {args}"
+build = "docker build -t {env:OCI_IMAGE} . {args}"
 
-# ------------------------------------------------------------------------------
-# Testing: Pytest with segmented coverage
-# ------------------------------------------------------------------------------
-[tool.hatch.envs.test]
-# Use the default env which contains pytest and pytest-cov
+# ==============================================================================
+# Project Environment
+# ==============================================================================
+[tool.hatch.envs.project]
 template = "default"
 
-[tool.hatch.envs.test.scripts]
-# Standard runs (no coverage)
-all = "pytest tests {args}"
-unit = "pytest tests/unit {args}"
-integration = "pytest tests/integration {args}"
-e2e = "pytest tests/e2e {args}"
-
-# Coverage specific runs
-# These use --cov=src to ensure only your source code is measured
-unit-cov = "pytest --cov=src --cov-report=term-missing --cov-report=html:docs/coverage/unit/htmlcov tests/unit {args}"
-integration-cov = "pytest --cov=src --cov-report=term-missing --cov-report=html:docs/coverage/integration/htmlcov tests/integration {args}"
-e2e-cov = "pytest --cov=src --cov-report=term-missing --cov-report=html:docs/coverage/e2e/htmlcov tests/e2e {args}"
-# Full suite coverage
-all-cov = "pytest --cov=src --cov-report=term-missing --cov-report=html:docs/coverage/all/htmlcov tests {args}"
-
-# ------------------------------------------------------------------------------
-# Documentation: MkDocs
-# ------------------------------------------------------------------------------
-[tool.hatch.envs.docs]
-detached = true
-dependency-groups = ["docs"]
-
-[tool.hatch.envs.docs.env-vars]
-DISABLE_MKDOCS_2_WARNING = "true"
-
-[tool.hatch.envs.docs.scripts]
-build = "mkdocs build --clean --strict"
-serve = "mkdocs serve --dev-addr 0.0.0.0:8000"
-
-# ------------------------------------------------------------------------------
-# Build Configuration (hatch build)
-# ------------------------------------------------------------------------------
-[tool.hatch.build.targets.sdist]
-exclude = [
-  "/.github",
-  "/docs",
-  "/tests",
+[tool.hatch.envs.project.scripts]
+lint = [
+  "mdformat --check {args:{env:MDFORMAT_TARGETS}}",
+  "yamlfix --check {args:{env:YAML_TARGETS}}",
+  "yamllint {args:{env:YAML_TARGETS}}",
+  "taplo check {args:{env:TOML_TARGETS}}",
+]
+format = [
+  "mdformat {args:{env:MDFORMAT_TARGETS}}",
+  "yamlfix {args:{env:YAML_TARGETS}}",
+  "taplo fmt {args:{env:TOML_TARGETS}}",
+]
+types = "echo '[INFO] Type checking is not applicable for the project environment' {args}"
+security = [
+  "detect-secrets scan --baseline {env:SECRETS_BASELINE} {args:.}",
+  "python -m checkov.main --quiet {args:-d .}",
+]
+quality = [
+  "hatch run project:format {args}",
+  "hatch run project:lint {args}",
+  "hatch run project:types {args}",
+  "hatch run project:security {args}",
+]
+security-update = ["detect-secrets scan {args:.} > {env:SECRETS_BASELINE}"]
+tests-func = [
+  "hatch run project:tests-unit {args}",
+  "hatch run project:tests-int {args}",
+]
+tests-func-cov = [
+  "hatch run project:tests-unit-cov {args}",
+  "hatch run project:tests-int-cov {args}",
+]
+tests-unit = "echo '[INFO] No unit tests are defined for the project environment'"
+tests-unit-cov = [
+  "hatch run project:tests-unit {args}",
+  "echo '[INFO] No coverage analysis is applicable for unit tests in the project environment'",
+]
+tests-int = [
+  "python {env:GENERATE_DOC_TESTS_SCRIPT} {args:{env:PYTHON_TARGETS}}",
+  "python -m pytest {env:DOC_TESTS_PATH} {args}",
+]
+tests-int-cov = [
+  "hatch run project:tests-int {args}",
+  "echo '[INFO] No coverage analysis is applicable for integration tests in the project environment'",
+]
+link-checks = "python {env:CHECK_LINKS_SCRIPT} {args:{env:MDFORMAT_TARGETS}}"
+link-checks-cov = [
+  "hatch run project:link-checks {args}",
+  "echo '[INFO] No coverage analysis is applicable for link checks in the project environment'",
+]
+tests-e2e = ["python -m pytest --import-mode=importlib examples {args}"]
+tests-e2e-cov = [
+  "hatch run project:tests-e2e {args}",
+  "echo '[INFO] No coverage analysis is applicable for E2E tests in the project environment'",
+]
+docs = [
+  "python docs/scripts/gen_ref_pages.py generate",
+  "python -m zensical {args:build}",
+]
+docs-serve = [
+  "python docs/scripts/gen_ref_pages.py generate",
+  "python -m zensical serve {args}",
 ]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/template_python"]
 
-
-# --- Tool Configurations ---
-[tool.mypy]
-files = ["src/template_python", "tests"]
-python_version = "3.10"
-warn_redundant_casts = true
-warn_unused_ignores = false
-show_error_codes = true
-namespace_packages = true
-exclude = ["venv", "build", "dist", ".venv", "examples/.*/setup\\.py"]
-follow_imports = "normal"
-ignore_missing_imports = true
+[tool.ty.src]
+include = ["src/disdantic", "tests"]
 
 [tool.ruff]
 line-length = 88
 indent-width = 4
-exclude = ["build", "dist", "env", ".venv", "src/template_python/version.py"]
+exclude = [
+  "build",
+  "dist",
+  "env",
+  ".venv",
+  "src/disdantic/version.py",
+  ".tests",
+]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -201,104 +444,118 @@ indent-style = "space"
 
 [tool.ruff.lint]
 ignore = [
-    "COM812",  # ignore trailing comma errors due to older Python versions
-    "ISC001",  # implicit string concatenation (often disabled when using ruff format)
-    "PD011",   # ignore .values usage since ruff assumes it's a Pandas DataFrame
-    "PLR0913", # ignore too many arguments in function definitions
-    "PLW1514", # allow Path.open without encoding
-    "RET505",  # allow `else` blocks
-    "RET506",  # allow `else` blocks
-    "S311",    # allow standard pseudo-random generators
-    "TC001",   # ignore imports used only for type checking
-    "TC002",   # ignore imports used only for type checking
-    "TC003",   # ignore imports used only for type checking
+  "COM812",  # ignore trailing comma errors due to older Python versions
+  "ISC001",  # implicit string concatenation (often disabled when using ruff format)
+  "PD011",   # ignore .values usage since ruff assumes it's a Pandas DataFrame
+  "PLR0913", # ignore too many arguments in function definitions
+  "PLW1514", # allow Path.open without encoding
+  "RET505",  # allow `else` blocks
+  "RET506",  # allow `else` blocks
+  "S311",    # allow standard pseudo-random generators
+  "TC001",   # ignore imports used only for type checking
+  "TC002",   # ignore imports used only for type checking
+  "TC003",   # ignore imports used only for type checking
 ]
 select = [
-    # Rules reference: https://docs.astral.sh/ruff/rules/
+  # Rules reference: https://docs.astral.sh/ruff/rules/
 
-    # Code Style / Formatting
-    "E",      # pycodestyle: checks adherence to PEP 8 conventions including spacing, indentation, and line length
-    "W",      # pycodestyle: checks adherence to PEP 8 conventions including spacing, indentation, and line length
-    "A",      # flake8-builtins: prevents shadowing of Python built-in names
-    "C",      # Convention: ensures code adheres to specific style and formatting conventions
-    "COM",    # flake8-commas: enforces the correct use of trailing commas
-    "ERA",    # eradicate: detects commented-out code that should be removed
-    "I",      # isort: ensures imports are sorted in a consistent manner
-    "ICN",    # flake8-import-conventions: enforces import conventions for better readability
-    "N",      # pep8-naming: enforces PEP 8 naming conventions for classes, functions, and variables
-    "NPY",    # NumPy: enforces best practices for using the NumPy library
-    "PD",     # pandas-vet: enforces best practices for using the pandas library
-    "PT",     # flake8-pytest-style: enforces best practices and style conventions for pytest tests
-    "PTH",    # flake8-use-pathlib: encourages the use of pathlib over os.path for file system operations
-    "Q",      # flake8-quotes: enforces consistent use of single or double quotes
-    "TCH",    # flake8-type-checking: enforces type checking practices and standards
-    "TID",    # flake8-tidy-imports: enforces tidy and well-organized imports
-    "RUF022", # flake8-ruff: enforce sorting of __all__ in modules
+  # Code Style / Formatting
+  "E",      # pycodestyle: checks adherence to PEP 8 conventions including spacing, indentation, and line length
+  "W",      # pycodestyle: checks adherence to PEP 8 conventions including spacing, indentation, and line length
+  "A",      # flake8-builtins: prevents shadowing of Python built-in names
+  "C",      # Convention: ensures code adheres to specific style and formatting conventions
+  "COM",    # flake8-commas: enforces the correct use of trailing commas
+  "ERA",    # eradicate: detects commented-out code that should be removed
+  "I",      # isort: ensures imports are sorted in a consistent manner
+  "ICN",    # flake8-import-conventions: enforces import conventions for better readability
+  "N",      # pep8-naming: enforces PEP 8 naming conventions for classes, functions, and variables
+  "NPY",    # NumPy: enforces best practices for using the NumPy library
+  "PD",     # pandas-vet: enforces best practices for using the pandas library
+  "PT",     # flake8-pytest-style: enforces best practices and style conventions for pytest tests
+  "PTH",    # flake8-use-pathlib: encourages the use of pathlib over os.path for file system operations
+  "Q",      # flake8-quotes: enforces consistent use of single or double quotes
+  "TCH",    # flake8-type-checking: enforces type checking practices and standards
+  "TID",    # flake8-tidy-imports: enforces tidy and well-organized imports
+  "RUF022", # flake8-ruff: enforce sorting of __all__ in modules
 
-    # Code Structure / Complexity
-    "C4",  # flake8-comprehensions: improves readability and performance of list, set, and dict comprehensions
-    "C90", # mccabe: checks for overly complex code using cyclomatic complexity
-    "ISC", # flake8-implicit-str-concat: prevents implicit string concatenation
-    "PIE", # flake8-pie: identifies and corrects common code inefficiencies and mistakes
-    "R",   # Refactor: suggests improvements to code structure and readability
-    "SIM", # flake8-simplify: simplifies complex expressions and improves code readability
+  # Code Structure / Complexity
+  "C4",  # flake8-comprehensions: improves readability and performance of list, set, and dict comprehensions
+  "C90", # mccabe: checks for overly complex code using cyclomatic complexity
+  "ISC", # flake8-implicit-str-concat: prevents implicit string concatenation
+  "PIE", # flake8-pie: identifies and corrects common code inefficiencies and mistakes
+  "R",   # Refactor: suggests improvements to code structure and readability
+  "SIM", # flake8-simplify: simplifies complex expressions and improves code readability
 
-    # Code Security / Bug Prevention
-    "ARG",   # flake8-unused-arguments: detects unused function and method arguments
-    "ASYNC", # flake8-async: identifies incorrect or inefficient usage patterns in asynchronous code
-    "B",     # flake8-bugbear: detects common programming mistakes and potential bugs
-    "BLE",   # flake8-blind-except: prevents blind exceptions that catch all exceptions without handling
-    "E",     # Error: detects and reports errors in the code
-    "F",     # Pyflakes: detects unused imports, shadowed imports, undefined variables, and various formatting errors in string operations
-    "INP",   # flake8-no-pep420: prevents implicit namespace packages by requiring __init__.py
-    "PGH",   # pygrep-hooks: detects deprecated and dangerous code patterns
-    "PL",    # Pylint: comprehensive source code analyzer for enforcing coding standards and detecting errors
-    "RSE",   # flake8-raise: ensures exceptions are raised correctly
-    "S",     # flake8-bandit: detects security issues and vulnerabilities in the code
-    "SLF",   # flake8-self: prevents incorrect usage of the self argument in class methods
-    "T10",   # flake8-debugger: detects the presence of debugging tools such as pdb
-    "T20",   # flake8-print: detects print statements left in the code
-    "UP",    # pyupgrade: automatically upgrades syntax for newer versions of Python
-    "W",     # Warning: provides warnings about potential issues in the code
-    "YTT",   # flake8-2020: identifies code that will break with future Python releases
+  # Code Security / Bug Prevention
+  "ARG",   # flake8-unused-arguments: detects unused function and method arguments
+  "ASYNC", # flake8-async: identifies incorrect or inefficient usage patterns in asynchronous code
+  "B",     # flake8-bugbear: detects common programming mistakes and potential bugs
+  "BLE",   # flake8-blind-except: prevents blind exceptions that catch all exceptions without handling
+  "F",     # Pyflakes: detects unused imports, shadowed imports, undefined variables, and various formatting errors in string operations
+  "INP",   # flake8-no-pep420: prevents implicit namespace packages by requiring __init__.py
+  "PGH",   # pygrep-hooks: detects deprecated and dangerous code patterns
+  "PL",    # Pylint: comprehensive source code analyzer for enforcing coding standards and detecting errors
+  "RSE",   # flake8-raise: ensures exceptions are raised correctly
+  "S",     # flake8-bandit: detects security issues and vulnerabilities in the code
+  "SLF",   # flake8-self: prevents incorrect usage of the self argument in class methods
+  "T10",   # flake8-debugger: detects the presence of debugging tools such as pdb
+  "T20",   # flake8-print: detects print statements left in the code
+  "UP",    # pyupgrade: automatically upgrades syntax for newer versions of Python
+  "YTT",   # flake8-2020: identifies code that will break with future Python releases
 
-    # Code Documentation
-    "FIX", # flake8-fixme: detects FIXMEs and other temporary comments that should be resolved
+  # Code Documentation
+  "FIX", # flake8-fixme: detects FIXMEs and other temporary comments that should be resolved
 ]
 
 [tool.ruff.lint.extend-per-file-ignores]
 "tests/**/*.py" = [
-    "S101",    # asserts allowed in tests
-    "ARG",     # Unused function args allowed in tests
-    "PLR2004", # Magic value used in comparison
-    "TCH002",  # No import only type checking in tests
-    "SLF001",  # enable private member access in tests
-    "S105",    # allow hardcoded passwords in tests
-    "S106",    # allow hardcoded passwords in tests
-    "S311",    # allow standard pseudo-random generators in tests
-    "PT011",   # allow generic exceptions in tests
-    "N806",    # allow uppercase variable names in tests
-    "PGH003",  # allow general ignores in tests
-    "PLR0915", # allow complex statements in tests
-    "S603",    # allow subprocess with untrusted input in tests
-    "S607",    # allow partial executable paths in tests
-    "T201",    # allow print in tests
+  "S101",    # asserts allowed in tests
+  "ARG",     # Unused function args allowed in tests
+  "PLR2004", # Magic value used in comparison
+  "TCH002",  # No import only type checking in tests
+  "SLF001",  # enable private member access in tests
+  "S105",    # allow hardcoded passwords in tests
+  "S106",    # allow hardcoded passwords in tests
+  "S311",    # allow standard pseudo-random generators in tests
+  "PT011",   # allow generic exceptions in tests
+  "N806",    # allow uppercase variable names in tests
+  "PGH003",  # allow general ignores in tests
+  "PLR0915", # allow complex statements in tests
+  "S603",    # allow subprocess with untrusted input in tests
+  "S607",    # allow partial executable paths in tests
+  "T201",    # allow print in tests
 ]
 "examples/**/*.py" = [
-    "T201",    # allow print in examples
-    "INP001",  # allow implicit namespace packages
+  "T201",   # allow print in examples
+  "INP001", # allow implicit namespace packages
+  "S603",   # allow subprocess check with untrusted input
+  "S607",   # allow starting a process with a partial executable path
+  "S101",   # allow asserts in tests/examples
+]
+"scripts/**/*.py" = [
+  "T201",    # allow print in scripts
+  "INP001",  # allow implicit namespace packages
+  "S603",    # allow subprocess check with untrusted input
+  "S607",    # allow starting a process with a partial executable path
+  "PLC0415", # allow local imports (e.g. dynamic imports in build_docs)
+  "BLE001",  # allow catching blind Exception
+]
+"docs/**/*.py" = [
+  "T201",   # allow print in docs
+  "INP001", # allow implicit namespace packages
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["template_python", "tests"]
+known-first-party = ["disdantic", "tests"]
 
 [tool.pytest.ini_options]
 addopts = "-s -vvv --cache-clear"
 asyncio_mode = "auto"
+log_level = "WARNING"
 markers = [
-    "smoke: quick tests to check basic functionality",
-    "sanity: detailed tests to ensure major functions work correctly",
-    "regression: tests to ensure that new changes do not break existing functionality"
+  "smoke: quick tests to check basic functionality",
+  "sanity: detailed tests to ensure major functions work correctly",
+  "regression: tests to ensure that new changes do not break existing functionality",
 ]
 testpaths = ["tests"]
 
@@ -306,3 +563,6 @@ testpaths = ["tests"]
 line_length = 88
 sequence_style = "block_style"
 preserve_quotes = true
+
+[tool.coverage.run]
+patch = ["subprocess"]

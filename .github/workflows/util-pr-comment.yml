@@ -1,0 +1,139 @@
+---
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ==============================================================================
+# PIPELINE: CI — PR Commenter
+# ------------------------------------------------------------------------------
+# Triggered by: Completion of the "CI — Development" workflow run.
+#
+# Part of the Unified Disdantic CI/CD Workflow:
+#      [ ] 1. DEVELOPMENT (PR validation, preview docs)
+#      [ ] 2. MAIN (Post-merge validation, main branch docs)
+#      [ ] 3. NIGHTLY (Daily check, pre-release publish, nightly docs)
+#      [ ] 4. WEEKLY (Weekly regression checks)
+#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs)
+#      [ ] 6. UTILITY: CLEANUP (Daily stale docs/OCI image cleanup)
+#   -> [x] 7. UTILITY: PR COMMENTER (Coverage & builds reporting on PRs) <--- CURRENT WORKFLOW
+#
+# High-Level Execution flow & Job Dependencies:
+#
+#   [post_comment] (Extracts test reports & builds from caller run, posts comment on PR)
+#
+# ==============================================================================
+name: "PR Commenter"
+on:
+  workflow_run:
+    workflows:
+      - "CI — Development"
+    types:
+      - completed
+permissions:
+  pull-requests: write
+  actions: read
+jobs:
+  post_comment:
+    name: "Post PR Status Comment"
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.event == 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - name: Resolve PR & SHA
+        id: context
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const run = context.payload.workflow_run;
+            const pr = (run.pull_requests[0] || (await github.rest.search.issuesAndPullRequests({
+              q: `is:pr repo:${context.repo.owner}/${context.repo.repo} sha:${run.head_sha}`
+            })).data.items[0])?.number;
+            if (!pr) core.setFailed("No PR found");
+            core.setOutput("number", pr);
+            core.setOutput("sha_short", run.head_sha.substring(0, 7));
+      - name: Download all artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+        continue-on-error: true
+      - name: Compile Coverage Report
+        id: coverage
+        run: |
+          python3 -c '
+          import os, pathlib
+          workspace = pathlib.Path(".")
+          summary_rows = []
+          details = []
+          for fp in workspace.rglob("*coverage_tests-*.md"):
+              content = fp.read_text()
+              parts = fp.parts
+              cov_part = next((p for p in parts if p.startswith("coverage-")), "")
+              py_ver = cov_part.split("-")[2] if len(cov_part.split("-")) > 2 else "Python"
+              suite = next((s for s in ["func", "unit", "int", "e2e"] if s in fp.name), "Unknown").capitalize()
+              total_line = next((l for l in content.splitlines() if "TOTAL" in l.upper()), None)
+              if total_line:
+                  cells = [c.strip() for c in total_line.replace("*", "").split("|") if c.strip()]
+                  summary_rows.append(f"| 🐍 {suite} | {py_ver} | {cells[1]} | {cells[2]} | **{cells[3]}** |")
+              details.append(f"<details>\n<summary>🔍 {suite} Suite ({py_ver})</summary>\n\n{content}\n</details>")
+          if summary_rows:
+              body = "### 📊 Test Coverage Results\n\n| Test Suite | Python/Language | Stmts/Lines | Miss/Branches | Coverage/Functions |\n| :--- | :---: | :---: | :---: | :---: |\n" + "\n".join(sorted(summary_rows)) + "\n\n<hr />\n\n### 📄 Detailed Reports\n\n" + "\n".join(details)
+              with open(os.environ["GITHUB_OUTPUT"], "a") as f: f.write(f"coverage_body={body}\n")
+          '
+      - name: Compile Build Report
+        id: builds
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          script: |
+            const artifacts = (await github.rest.actions.listWorkflowRunArtifacts({ ...context.repo, run_id: ${{ github.event.workflow_run.id }} })).data.artifacts;
+            const target = artifacts.filter(a => a.name.startsWith('build-artifact-'));
+            if (target.length > 0) {
+              let body = `### 📦 Build Artifacts\n\nFor commit \`${{ steps.context.outputs.sha_short }}\`:\n`;
+              target.forEach(a => {
+                body += `- 📦 [${a.name}](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${{ github.event.workflow_run.id }}/artifacts/${a.id})\n`;
+              });
+              core.setOutput("body", body);
+            }
+      - name: Compile Docs Preview
+        id: docs
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          script: |
+            const jobs = (await github.rest.actions.listJobsForWorkflowRun({ ...context.repo, run_id: ${{ github.event.workflow_run.id }} })).data.jobs;
+            if (jobs.find(j => j.name === "Build & Deploy Docs" && j.conclusion === "success")) {
+              const url = `https://${context.repo.owner.toLowerCase()}.github.io/${context.repo.repo}/review/pr-${{ steps.context.outputs.number }}/`;
+              core.setOutput("body", `### 📖 Documentation\n\n🔗 [PR Documentation Preview](${url})`);
+            }
+      - name: Upsert Coverage Comment
+        if: steps.coverage.outputs.coverage_body
+        uses: ./.github/actions/utility/comment-upsert
+        with:
+          pr-number: ${{ steps.context.outputs.number }}
+          marker: "<!-- disdantic-coverage-comment -->"
+          body: ${{ steps.coverage.outputs.coverage_body }}
+      - name: Upsert Build Comment
+        if: steps.builds.outputs.body
+        uses: ./.github/actions/utility/comment-upsert
+        with:
+          pr-number: ${{ steps.context.outputs.number }}
+          marker: "<!-- disdantic-build-comment -->"
+          body: ${{ steps.builds.outputs.body }}
+      - name: Upsert Docs Comment
+        if: steps.docs.outputs.body
+        uses: ./.github/actions/utility/comment-upsert
+        with:
+          pr-number: ${{ steps.context.outputs.number }}
+          marker: "<!-- disdantic-docs-comment -->"
+          body: ${{ steps.docs.outputs.body }}

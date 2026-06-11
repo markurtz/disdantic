@@ -1,0 +1,168 @@
+---
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+name: "Project Docs Builder"
+description: "Builds project documentation using Zensical and mike versioning"
+inputs:
+  version-name:
+    description: "The version or folder name of the docs to build"
+    required: true
+  python-version:
+    description: "Python version to set up for tooling"
+    required: true
+  force-run:
+    description: "Always run even if no changes are detected"
+    required: false
+    default: "false"
+outputs:
+  docs-url:
+    description: "The URL where the deployed docs will be accessible"
+    value: ${{ steps.url-step.outputs.docs-url }}
+runs:
+  using: "composite"
+  steps:
+    - name: Detect changes
+      if: inputs.force-run != 'true'
+      uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590  # v3.0.3
+      id: filter
+      with:
+        filters: .github/paths-filter.yml
+    - name: Evaluate changes
+      id: check
+      shell: bash
+      env:
+        FORCE_RUN: ${{ inputs.force-run }}
+        GITHUB_CHANGES: ${{ steps.filter.outputs.github_changes }}
+        DOCS_CHANGES: ${{ steps.filter.outputs.docs_changes }}
+        SRC_CHANGES: ${{ steps.filter.outputs.src_changes }}
+        PYPROJECT_CHANGES: ${{ steps.filter.outputs.pyproject_changes }}
+      run: |
+        if [[ "$FORCE_RUN" == "true" || \
+              "$GITHUB_CHANGES" == "true" || \
+              "$DOCS_CHANGES" == "true" || \
+              "$SRC_CHANGES" == "true" || \
+              "$PYPROJECT_CHANGES" == "true" ]]; then
+          echo "run=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "run=false" >> "$GITHUB_OUTPUT"
+        fi
+    - name: Evaluate docs arguments
+      id: docs-args
+      if: steps.check.outputs.run == 'true'
+      shell: bash
+      env:
+        VERSION_NAME: ${{ inputs.version-name }}
+      run: |
+        BUILD_TYPE=""
+        ALIAS=""
+        if [[ "$VERSION_NAME" =~ ^pr-[0-9]+$ ]]; then
+          BUILD_TYPE="pr"
+        elif [[ "$VERSION_NAME" =~ ^main- ]]; then
+          BUILD_TYPE="main"
+          ALIAS="dev"
+        elif [[ "$VERSION_NAME" =~ ^nightly- ]]; then
+          BUILD_TYPE="nightly"
+          ALIAS="nightly"
+        elif [[ "$VERSION_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+          BUILD_TYPE="release"
+          git fetch --tags --force 2>/dev/null || true
+          LATEST_TAG=$(git tag -l 'v[0-9]*' | sort -V | tail -n 1)
+          if [ "$VERSION_NAME" = "$LATEST_TAG" ]; then
+            ALIAS="latest"
+          else
+            ALIAS=""
+          fi
+        else
+          BUILD_TYPE="release"
+          ALIAS=""
+        fi
+        echo "build-type=$BUILD_TYPE" >> "$GITHUB_OUTPUT"
+        echo "alias=$ALIAS" >> "$GITHUB_OUTPUT"
+        echo "[INFO] Evaluated build-type: $BUILD_TYPE, alias: $ALIAS for version: $VERSION_NAME"
+    - name: Set up Python & Hatch
+      if: steps.check.outputs.run == 'true'
+      uses: ./.github/actions/utility/setup-python
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Build documentation source
+      if: steps.check.outputs.run == 'true'
+      shell: bash
+      run: |-
+        echo "[INFO] Building documentation source..."
+        hatch run all:docs
+    - name: Deploy PR documentation preview
+      if: steps.check.outputs.run == 'true' && steps.docs-args.outputs.build-type == 'pr'
+      uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847  # v4.0.0
+      with:
+        github_token: ${{ github.token }}
+        publish_branch: gh-pages
+        publish_dir: ./site
+        destination_dir: review/${{ inputs.version-name }}
+        keep_files: true
+        user_name: "github-actions[bot]"
+        user_email: "github-actions[bot]@users.noreply.github.com"
+    - name: Set up Git credentials
+      if: steps.check.outputs.run == 'true' && steps.docs-args.outputs.build-type != 'pr'
+      uses: ./.github/actions/utility/setup-git
+    - name: Deploy versioned documentation using mike
+      if: steps.check.outputs.run == 'true' && steps.docs-args.outputs.build-type != 'pr'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        VERSION_NAME: ${{ inputs.version-name }}
+        ALIAS: ${{ steps.docs-args.outputs.alias }}
+        BUILD_TYPE: ${{ steps.docs-args.outputs.build-type }}
+      run: |-
+        echo "[INFO] Deploying version $VERSION_NAME using mike..."
+        if [ -n "$ALIAS" ]; then
+          hatch run mike deploy -F zensical.toml --push --update-aliases "$VERSION_NAME" "$ALIAS"
+        else
+          hatch run mike deploy -F zensical.toml --push "$VERSION_NAME"
+        fi
+        if [ "$BUILD_TYPE" = "release" ] && [ "$ALIAS" = "latest" ]; then
+          echo "[INFO] Setting default version to latest..."
+          hatch run mike set-default -F zensical.toml --push latest
+        fi
+        if [ "$BUILD_TYPE" = "main" ] || [ "$BUILD_TYPE" = "nightly" ]; then
+          echo "[INFO] Cleaning up older versions of type: $BUILD_TYPE..."
+          TO_DELETE=$(hatch run mike list -F zensical.toml | awk '{print $1}' | grep "^${BUILD_TYPE}-" | grep -v "^${VERSION_NAME}$" || true)
+          if [ -n "$TO_DELETE" ]; then
+            echo "[INFO] Deleting old versions: $TO_DELETE"
+            hatch run mike delete -F zensical.toml --push $TO_DELETE
+          else
+            echo "[INFO] No old versions of type $BUILD_TYPE found to delete."
+          fi
+        fi
+    - name: Compute documentation URL
+      id: url-step
+      if: steps.check.outputs.run == 'true'
+      shell: bash
+      env:
+        REPO_OWNER: ${{ github.repository_owner }}
+        REPO: ${{ github.repository }}
+        BUILD_TYPE: ${{ steps.docs-args.outputs.build-type }}
+        VERSION_NAME: ${{ inputs.version-name }}
+        ALIAS: ${{ steps.docs-args.outputs.alias }}
+      run: |-
+        OWNER_LOWER=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')
+        REPO_NAME=$(echo "$REPO" | cut -d'/' -f2)
+        BASE_URL="https://${OWNER_LOWER}.github.io/${REPO_NAME}"
+        if [ "$BUILD_TYPE" = "pr" ]; then
+          DOCS_URL="${BASE_URL}/review/${VERSION_NAME}/"
+        elif [ -n "$ALIAS" ]; then
+          DOCS_URL="${BASE_URL}/${ALIAS}/"
+        else
+          DOCS_URL="${BASE_URL}/${VERSION_NAME}/"
+        fi
+        echo "docs-url=$DOCS_URL" >> "$GITHUB_OUTPUT"

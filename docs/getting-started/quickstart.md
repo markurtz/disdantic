@@ -4,7 +4,7 @@ This guide gets you from a fresh clone to a bootstrapped and running project in 
 
 ## Step 1 — Instantiate the Template
 
-1. Navigate to the [template-python repository on GitHub](https://github.com/markurtz/template-python).
+1. Navigate to the [disdantic repository on GitHub](https://github.com/markurtz/disdantic).
 1. Click the green **Use this template** button and select **Create a new repository**.
 1. Choose your repository name and visibility, then click **Create repository**.
 1. Clone your new repository to your local machine:
@@ -39,11 +39,11 @@ Ensure everything is configured correctly by running the pre-configured quality 
 
 ```bash
 # Run linting and type checking
-hatch run lint:check
-hatch run types:check
+hatch run all:lint
+hatch run all:types
 
 # Run tests
-hatch run test:all
+hatch run all:tests
 ```
 
 If all tests pass, your new project is successfully bootstrapped and ready for development!
@@ -53,10 +53,9 @@ If all tests pass, your new project is successfully bootstrapped and ready for d
 
 ## Step 5 — Explore Further
 
-Now that your project is ready, explore what `template-python` provides:
+Now that your project is ready, explore what `disdantic` provides:
 
-- **[Repository Setup](../guides/repository-setup.md)** — Complete your GitHub configuration (Actions, Discussions, PyPI publishing).
 - **[Guides](../guides/index.md)** — Task-specific deep dives including CI/CD workflows.
 - **[Reference](../reference/index.md)** — Full configuration reference.
 
-**Next:** [Repository Setup →](../guides/repository-setup.md)
+**Next:** [Guides →](../guides/index.md)

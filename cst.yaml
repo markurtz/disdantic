@@ -1,0 +1,68 @@
+---
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+schemaVersion: "2.0.0"
+metadataTest:
+  entrypoint: []
+  cmd:
+    - "python"
+    - "-m"
+    - "disdantic"
+  workdir: "/app"
+  exposedPorts:
+    - "8080"
+  user: "appuser"
+fileExistenceTests:
+  - name: "Verify app directory exists"
+    path: "/app"
+    shouldExist: true
+commandTests:
+  - name: "Verify python is installed and functional"
+    command: "python"
+    args:
+      - "--version"
+    expectedOutput:
+      - "Python 3.*"
+  - name: "Verify disdantic module execution and version check"
+    command: "python"
+    args:
+      - "-m"
+      - "disdantic"
+      - "--version"
+    expectedOutput:
+      - "disdantic v.*"
+  - name: "Verify disdantic CLI binary is available and prints version"
+    command: "disdantic"
+    args:
+      - "--version"
+    expectedOutput:
+      - "disdantic v.*"
+  - name: "Verify disdantic CLI binary help command works"
+    command: "disdantic"
+    args:
+      - "--help"
+    expectedOutput:
+      - "Usage: disdantic.*"
+      - "diagnose"
+      - "setup"
+  - name: "Verify disdantic module help command works"
+    command: "python"
+    args:
+      - "-m"
+      - "disdantic"
+      - "--help"
+    expectedOutput:
+      - "Usage: python -m disdantic.*"
+      - "diagnose"
+      - "setup"

@@ -1,17 +1,31 @@
-# Security Policy for `template-python`
+<!--
+Copyright 2026 markurtz
 
-We take the security of `template-python` seriously. This document outlines our security policies, supported versions, and how to responsibly disclose a vulnerability.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+# Security Policy for Disdantic
+
+We take the security of Disdantic seriously. This document outlines our security policies, supported versions, and how to responsibly disclose a vulnerability.
 
 ## Supported Versions
 
-Please check the table below for the versions of `template-python` that are currently being supported with security updates.
+Please check the table below for the versions of Disdantic that are currently being supported with security updates.
 
-| Version                         | Supported          |
-| :------------------------------ | :----------------- |
-| `{{current_major_version}}.x`   | :white_check_mark: |
-| `< {{current_major_version}}.0` | :x:                |
-
-*(Note: Replace the table contents with your actual versioning scheme once released.)*
+| Version   | Supported          |
+| :-------- | :----------------- |
+| `0.1.x`   | :white_check_mark: |
+| `< 0.1.0` | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -20,8 +34,8 @@ Please check the table below for the versions of `template-python` that are curr
 
 If you discover a security vulnerability, please bring it to our attention right away using one of the following methods:
 
-1. **GitHub Security Advisories (Preferred):** Use the "Report a vulnerability" button on the **[Security tab](https://github.com/markurtz/template-python/security/advisories)** of this repository.
-1. **Email:** Send your report directly to **contact the maintainers**.
+1. **GitHub Security Advisories (Preferred):** Use the "Report a vulnerability" button on the **[Security tab](https://github.com/markurtz/disdantic/security/advisories)** of this repository.
+1. **Direct Message:** Send a message directly to the maintainer's GitHub user account, **[markurtz](https://github.com/markurtz)**, if applicable or through other provided direct pathways for the user.
 
 ### What to Include in Your Report
 
@@ -31,7 +45,7 @@ To help us resolve the issue quickly, please include the following information:
 - **Detailed description** of the vulnerability and its potential impact.
 - **Step-by-step instructions** to reproduce the issue.
 - **Proof of Concept (PoC)** code or screenshots, if available.
-- **Environment details** (e.g., version of `template-python`, OS, Python version, relevant configurations).
+- **Environment details** (e.g., version of Disdantic, OS, Python version, relevant configurations).
 
 ## Triage and Resolution Process
 
@@ -46,13 +60,13 @@ We will handle your report with strict confidentiality. Our process is as follow
 
 **In Scope:**
 
-- Vulnerabilities within the core `template-python` codebase.
+- Vulnerabilities within the core Disdantic codebase.
 - Security issues resulting from our default configurations or execution paths.
 
 **Out of Scope:**
 
 - Theoretical issues without a reproducible PoC.
-- Vulnerabilities in third-party dependencies that are not exploitable through `template-python`.
-- Issues requiring the victim to intentionally clone and run `template-python` against a malicious, untrusted Git repository, unless it leads to unexpected system compromise beyond the expected permissions.
+- Vulnerabilities in third-party dependencies that are not exploitable through Disdantic.
+- Issues requiring the victim to intentionally clone and run Disdantic against a malicious, untrusted Git repository, unless it leads to unexpected system compromise beyond the expected permissions.
 
 *(Note: We currently do not operate a bug bounty program. Disclosures are greatly appreciated but are not eligible for financial rewards at this time.)*

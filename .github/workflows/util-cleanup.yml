@@ -1,0 +1,133 @@
+---
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ==============================================================================
+# PIPELINE: CI — Repository Cleanup
+# ------------------------------------------------------------------------------
+# Triggered by: Pull Requests closed, daily cron at 00:00 UTC, or manual trigger.
+#
+# Part of the Unified Disdantic CI/CD Workflow:
+#      [ ] 1. DEVELOPMENT (PR validation, preview docs)
+#      [ ] 2. MAIN (Post-merge validation, main branch docs)
+#      [ ] 3. NIGHTLY (Daily check, pre-release publish, nightly docs)
+#      [ ] 4. WEEKLY (Weekly regression checks)
+#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs)
+#   -> [x] 6. UTILITY: CLEANUP (Daily stale docs/OCI image cleanup) <--- CURRENT WORKFLOW
+#      [ ] 7. UTILITY: PR COMMENTER (Coverage & builds reporting on PRs)
+#
+# High-Level Execution flow & Job Dependencies:
+#
+#   (Runs in parallel depending on the trigger event)
+#   ├──> [cleanup-docs] (Deletes preview review/pr-* docs and stale gh-pages branches)
+#   └──> [cleanup-oci]  (Deletes old containers from registry, keeping last N containers)
+#
+# ==============================================================================
+name: "CI — Repository Cleanup"
+on:
+  pull_request:
+    types:
+      - closed
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+  packages: write
+jobs:
+  cleanup-docs:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork ==
+      false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Setup Git Identity
+        uses: ./.github/actions/utility/setup-git
+      - name: Set up Python & Hatch
+        uses: ./.github/actions/utility/setup-python
+        with:
+          python-version: "3.10"
+      - name: Cleanup Versioned Docs (Mike)
+        if: github.event_name != 'pull_request'
+        run: |
+          python3 -c '
+          import json, re, subprocess, pathlib
+          res = subprocess.run(["git", "show", "origin/gh-pages:versions.json"], capture_output=True, text=True)
+          versions = json.loads(res.stdout) if res.returncode == 0 else []
+          active = {v["version"] for v in versions if any(a in v.get("aliases", []) for a in ("dev", "nightly", "latest"))}
+          to_delete = [v["version"] for v in versions if (v["version"].startswith("main-") or re.match(r"^\d+\.\d+\.\d+\.a\d{8}$", v["version"])) and v["version"] not in active]
+          if to_delete: subprocess.run(["hatch", "run", "mike", "delete", "-F", "zensical.toml", "--push"] + to_delete, check=True)
+          '
+      - name: Switch to gh-pages branch
+        run: |
+          git fetch origin gh-pages
+          git checkout -f gh-pages
+      - name: Cleanup Stale PRs
+        env:
+          PR_NUM: "${{ github.event.pull_request.number }}"
+        run: |
+          python3 -c '
+          import os, subprocess, shutil, pathlib
+          review_dir = pathlib.Path("review")
+          if not review_dir.exists(): exit(0)
+          pr_num = os.environ.get("PR_NUM")
+          dirs = [review_dir / f"pr-{pr_num}"] if pr_num and pr_num != "" else [p for p in review_dir.glob("pr-*") if p.is_dir()]
+          for d in dirs:
+              if d.exists():
+                  shutil.rmtree(d)
+                  subprocess.run(["git", "rm", "-rf", str(d)], check=False)
+          '
+      - name: Commit and Push Changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git commit -m "docs: cleanup stale PR previews and versions"
+            git push origin gh-pages
+          fi
+  cleanup-oci:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Cleanup OCI Images
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
+        with:
+          github-token: ${{ github.token }}
+          script: |-
+            const owner = context.repo.owner;
+            const pkg = 'disdantic';
+            const fetchVersions = async (fn) => {
+              try {
+                return (await fn({ org: owner, package_type: 'container', package_name: pkg, per_page: 100 })).data;
+              } catch {
+                return (await fn({ username: owner, package_type: 'container', package_name: pkg, per_page: 100 })).data;
+              }
+            };
+            const versions = await fetchVersions(github.rest.packages.getAllPackageVersionsForPackageOwnedByOrg);
+            const isNightly = (v) => (v.metadata?.container?.tags || []).some(t => t.startsWith('nightly-'));
+            const isRelease = (v) => (v.metadata?.container?.tags || []).some(t => /^v\d+\.\d+\.\d+/.test(t));
+            const nightly = versions.filter(isNightly).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+            const release = versions.filter(isRelease).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+            for (const ver of [...nightly.slice(5), ...release.slice(30)]) {
+              try {
+                await github.rest.packages.deletePackageVersionForOrg({ org: owner, package_type: 'container', package_name: pkg, package_version_id: ver.id });
+              } catch {
+                try {
+                  await github.rest.packages.deletePackageVersionForUser({ username: owner, package_type: 'container', package_name: pkg, package_version_id: ver.id });
+                } catch (err) {
+                  console.error(`Failed to delete version ${ver.id}:`, err);
+                }
+              }
+            }

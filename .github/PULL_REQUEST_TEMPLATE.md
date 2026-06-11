@@ -1,5 +1,21 @@
 <!--
-Thanks for contributing to template-python!
+Copyright 2026 markurtz
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+<!--
+Thanks for contributing to Disdantic!
 Please review the [Contributing Guidelines](../CONTRIBUTING.md) before submitting your PR.
 -->
 
@@ -57,11 +73,11 @@ please add screenshots, terminal output, or recordings to demonstrate the change
 ## Checklist
 
 > [!IMPORTANT]
-> Please review and complete this checklist before submitting your PR. This helps our maintainers process your contribution faster and ensures it meets the quality standards of `template-python`.
+> Please review and complete this checklist before submitting your PR. This helps our maintainers process your contribution faster and ensures it meets the quality standards of `disdantic`.
 
 - [ ] "I certify that all code in this PR is my own, except as noted below."
 - [ ] I have read the [CONTRIBUTING.md](../CONTRIBUTING.md) guide.
-- [ ] My code follows the established style guidelines of `template-python`.
+- [ ] My code follows the established style guidelines of `disdantic`.
 - [ ] I have performed a self-review of my own code.
 - [ ] I have commented my code, particularly in hard-to-understand areas.
 - [ ] I have made corresponding changes to the documentation.

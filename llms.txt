@@ -1,20 +1,31 @@
-# template-python
+# disdantic
 
-> An opinionated, production-ready Apache 2.0 template repository for bootstrapping modern software projects.
+> A lightweight collection of utilities and mixins for Pydantic.
 
-`template-python` is designed to eliminate boilerplate and enforce consistency across an organization's repositories.
-For comprehensive context and full documentation, please see [llms-full.txt](llms-full.txt).
+`disdantic` simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate.
+For complete, merged context containing the full codebase and all guides, see [llms-full.txt](llms-full.txt).
 
-## Docs
-- [Home](https://markurtz.github.io/template-python/): Documentation site home page
-- [Getting Started](https://markurtz.github.io/template-python/getting-started/): Installation, quickstart, and workflow guides
-- [Guides](https://markurtz.github.io/template-python/guides/): How-to guides for common tasks
-- [API Reference](https://markurtz.github.io/template-python/reference/): Full API reference documentation
+## Primary Documentation Links
+- [Documentation Home](https://markurtz.github.io/disdantic/): Main site home page
+- [Getting Started](https://markurtz.github.io/disdantic/getting-started/): Onboarding, installation, and setup
+- [Guides](https://markurtz.github.io/disdantic/guides/): How-to guides for common tasks
+- [API Reference](https://markurtz.github.io/disdantic/reference/): Complete API reference
 
-## Repository Files
-- [README.md](https://github.com/markurtz/template-python/blob/main/README.md): Project overview and quick start
-- [AGENTS.md](https://github.com/markurtz/template-python/blob/main/AGENTS.md): AI agent coding instructions
-- [DEVELOPING.md](https://github.com/markurtz/template-python/blob/main/DEVELOPING.md): Developer setup guide
+## Architectural Topography
 
-## Optional
-- [Full Documentation](https://markurtz.github.io/template-python/llms-full.txt): The complete concatenated documentation for template-python
+### Configuration & Entrypoints
+- [pyproject.toml](pyproject.toml): Project settings, environment scripts, and Hatch metadata.
+- [AGENTS.md](AGENTS.md): Foundational agent development guidelines, build commands, and security boundaries.
+- [CLAUDE.md](CLAUDE.md): Direct pointer routing assistants to `AGENTS.md`.
+- [src/disdantic/__main__.py](src/disdantic/__main__.py): Standalone CLI entrypoint.
+
+### Core Python Modules
+- [src/disdantic/__init__.py](src/disdantic/__init__.py): Package initialization.
+- [src/disdantic/settings.py](src/disdantic/settings.py): Pydantic settings configuration.
+- [src/disdantic/logging.py](src/disdantic/logging.py): Loguru logging setup and custom handlers.
+- [src/disdantic/compat.py](src/disdantic/compat.py): Compatibility layer.
+
+### Testing Suite Tiers
+- [tests/python/unit/](tests/python/unit/): Python unit test suite.
+- [tests/python/integration/](tests/python/integration/): Python integration test suite.
+- [tests/e2e/](tests/e2e/): High-level black-box orchestrator integration tests.

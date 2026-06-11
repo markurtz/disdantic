@@ -1,64 +1,57 @@
-# =============================================================================
-# CODEOWNERS — Automated Review Assignment
+# Copyright 2026 markurtz
 #
-# GitHub uses this file to automatically request reviews from the designated
-# code owners when a pull request modifies files matching a given pattern.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# HOW TO USE THIS FILE:
-#   1. Replace all placeholder GitHub usernames (e.g., @org/team-name or
-#      @username) with your actual GitHub team or individual usernames.
-#   2. Rules are evaluated from top to bottom. The LAST matching rule wins.
-#   3. Patterns follow the same syntax as .gitignore.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# REFERENCE:
-#   https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
-# =============================================================================
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-# -----------------------------------------------------------------------------
-# Default Owner
-# Catches all files not matched by a more specific rule below.
-# This team or user is the reviewer of last resort.
-# -----------------------------------------------------------------------------
-*                               @{{maintainer_username}}
+*                               @markurtz
 
 # -----------------------------------------------------------------------------
 # CI/CD & Infrastructure
 # Requires review from a platform/infrastructure team for any workflow changes.
 # -----------------------------------------------------------------------------
-.github/                        @{{maintainer_username}}
-.github/workflows/              @{{maintainer_username}}
+.github/                        @markurtz
+.github/workflows/              @markurtz
 
 # -----------------------------------------------------------------------------
 # Documentation
 # Route docs changes to the team responsible for content quality.
 # -----------------------------------------------------------------------------
-docs/                           @{{maintainer_username}}
-*.md                            @{{maintainer_username}}
-mkdocs.yml                      @{{maintainer_username}}
+docs/                           @markurtz
+*.md                            @markurtz
+mkdocs.yml                      @markurtz
 
 # -----------------------------------------------------------------------------
 # Security-Sensitive Files
 # Any change to security policy, secrets config, or dependencies must be
 # reviewed by the security team.
 # -----------------------------------------------------------------------------
-SECURITY.md                     @{{maintainer_username}}
-.github/dependabot.yml          @{{maintainer_username}}
-.pre-commit-config.yaml         @{{maintainer_username}}
+SECURITY.md                     @markurtz
+.github/dependabot.yml          @markurtz
+.pre-commit-config.yaml         @markurtz
 
 # -----------------------------------------------------------------------------
 # Core Source Code
 # Replace with the path to your primary package directory.
 # -----------------------------------------------------------------------------
-src/                            @{{maintainer_username}}
+src/                            @markurtz
 
 # -----------------------------------------------------------------------------
 # Tests
 # Requires review from someone responsible for test quality and coverage.
 # -----------------------------------------------------------------------------
-tests/                          @{{maintainer_username}}
+tests/                          @markurtz
 
 # -----------------------------------------------------------------------------
 # Container & Deployment
 # -----------------------------------------------------------------------------
-Dockerfile                      @{{maintainer_username}}
-docker-compose.yml              @{{maintainer_username}}
+Dockerfile                      @markurtz
+docker-compose.yml              @markurtz

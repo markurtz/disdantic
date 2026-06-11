@@ -1,0 +1,74 @@
+---
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+name: "Upsert PR Comment"
+description: "Posts a new comment on a pull request, or updates an existing one if a specific\
+  \ marker/signature is found."
+inputs:
+  pr-number:
+    description: "The pull request number"
+    required: true
+  marker:
+    description: "A hidden HTML comment marker to uniquely identify the comment"
+    required: true
+  body:
+    description: "The markdown body of the comment"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Upsert Comment
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
+      env:
+        PR_NUMBER: ${{ inputs.pr-number }}
+        MARKER: ${{ inputs.marker }}
+        BODY: ${{ inputs.body }}
+      with:
+        github-token: ${{ github.token }}
+        script: |-
+          const prNumber = parseInt(process.env.PR_NUMBER, 10);
+          const marker = process.env.MARKER;
+          const body = process.env.BODY;
+          if (!marker) {
+            core.setFailed("marker input is required");
+            return;
+          }
+          const comments = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+            per_page: 100
+          });
+          let commentBody = body;
+          if (!commentBody.includes(marker)) {
+            commentBody = `${commentBody}\n\n${marker}`;
+          }
+          const existingComment = comments.data.find(c => c.user.login === 'github-actions[bot]' && c.body.includes(marker));
+          if (existingComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existingComment.id,
+              body: commentBody
+            });
+            console.log(`Updated comment for marker: ${marker}`);
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: commentBody
+            });
+            console.log(`Created new comment for marker: ${marker}`);
+          }

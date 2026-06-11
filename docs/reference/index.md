@@ -1,44 +1,32 @@
 # Reference
 
-The Reference section contains the complete technical documentation for template-python — API classes and configuration options. This is the section to bookmark when you need to look something up.
+The Reference section contains the complete technical documentation for `disdantic` — API classes, configuration options, CLI reference, and test coverage reports.
 
 ## In This Section
 
 <div class="grid cards" markdown>
 
-<div class="card" markdown>
-:material-code-json: **API Reference**
+-   **[:material-console: CLI](cli.md)**
 
-______________________________________________________________________
+    Command-line usage and subcommands.
 
-Auto-generated documentation for all public classes, methods, and modules.
+-   **[:material-api: Python API](python_api/index.md)**
 
-[:octicons-arrow-right-24: Python API Reference](api/template_python/)
+    Complete public Python API documentation.
 
-</div>
+-   **[:material-shield-check: Python Tests](python_coverage.md)**
 
-<div class="card" markdown>
-:material-test-tube: **Test Coverage**
-
-______________________________________________________________________
-
-Run `hatch run test:all-cov` to generate HTML reports locally, or view the latest pipeline runs:
-
-- [:octicons-arrow-right-24: Unit Tests](../coverage/unit/htmlcov/index.html)
-- [:octicons-arrow-right-24: Integration Tests](../coverage/integration/htmlcov/index.html)
-- [:octicons-arrow-right-24: End-to-End Tests](../coverage/e2e/htmlcov/index.html)
-
-</div>
+    Python coverage reports for unit, integration, functional, and E2E tests.
 
 </div>
 
 ## Python API Usage
 
-`template-python` can also be used programmatically in your own Python scripts:
+`disdantic` can also be used programmatically in your own Python scripts:
 
 ```python
-from template_python import Settings, configure_logger, logger
-from template_python.logging import LoggingSettings
+from disdantic import Settings, configure_logger, logger
+from disdantic.logging import LoggingSettings
 
 # Initialize the global logger
 configure_logger(LoggingSettings(enabled=True, level="INFO"))
@@ -49,15 +37,3 @@ settings = Settings(environment="production")
 # Log the current configuration
 logger.info("Application initialized with settings: {}", settings)
 ```
-
-## Generating Reference Docs
-
-This project is pre-configured to work with [`mkdocstrings`](https://mkdocstrings.github.io/) for auto-generating API documentation from docstrings.
-
-### Setup
-
-> [!NOTE]
-> `mkdocstrings` supports multiple languages via handlers (e.g., Python, C++, Crystal). See the [mkdocstrings documentation](https://mkdocstrings.github.io/) to configure it for your language.
-
-1. The plugin and its Python handler are already managed by Hatch in the `docs` environment (`mkdocstrings[python]`).
-1. Configure `mkdocs.yml` according to your language handler and create your reference pages.
