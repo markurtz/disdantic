@@ -325,7 +325,11 @@ class TestVerifyRegistries:
         def clear_all() -> None:
             # We recursively find and clear all subclasses of RegistryMixin
             def clear_recursive(cls: type[RegistryMixin[Any]]) -> None:
-                if cls is not RegistryMixin and hasattr(cls, "registry"):
+                if (
+                    cls is not RegistryMixin
+                    and hasattr(cls, "registry")
+                    and ("<locals>" in cls.__qualname__ or cls in _active_registries)
+                ):
                     with contextlib.suppress(Exception):
                         cls.clear_registry()
                 for subclass in cls.__subclasses__():

@@ -37,7 +37,7 @@ from disdantic.registry import (
 from disdantic.settings import get_settings, reset_settings
 
 
-class ConcreteRegistry(RegistryMixin[type]):
+class ConcreteIntegrationRegistry(RegistryMixin[type]):
     """Concrete registry class used for RegistryMixin integration testing."""
 
 
@@ -84,9 +84,9 @@ class TestRegistryMixin:
     def clean_settings_fixture(self) -> Generator[None, None, None]:
         """Ensure clean settings and registry before and after tests."""
         reset_settings()
-        ConcreteRegistry.clear_registry()
+        ConcreteIntegrationRegistry.clear_registry()
         yield
-        ConcreteRegistry.clear_registry()
+        ConcreteIntegrationRegistry.clear_registry()
         reset_settings()
 
     @pytest.fixture(params=["service_alpha", "service_beta"])
@@ -99,22 +99,22 @@ class TestRegistryMixin:
     @pytest.mark.smoke
     def test_interface_signature_validation(self) -> None:
         """Validate structural contracts across integrated boundaries."""
-        assert issubclass(ConcreteRegistry, RegistryMixin)
-        assert hasattr(ConcreteRegistry, "registry")
-        assert hasattr(ConcreteRegistry, "_lower_registry")
-        assert hasattr(ConcreteRegistry, "registry_auto_discovery")
-        assert hasattr(ConcreteRegistry, "registry_populated")
+        assert issubclass(ConcreteIntegrationRegistry, RegistryMixin)
+        assert hasattr(ConcreteIntegrationRegistry, "registry")
+        assert hasattr(ConcreteIntegrationRegistry, "_lower_registry")
+        assert hasattr(ConcreteIntegrationRegistry, "registry_auto_discovery")
+        assert hasattr(ConcreteIntegrationRegistry, "registry_populated")
 
         # Check parameter signatures for key methods
-        assert inspect.isroutine(ConcreteRegistry.is_auto_discovery_enabled)
-        assert inspect.isroutine(ConcreteRegistry.register)
-        assert inspect.isroutine(ConcreteRegistry.register_decorator)
-        assert inspect.isroutine(ConcreteRegistry.auto_populate_registry)
-        assert inspect.isroutine(ConcreteRegistry.registered_objects)
-        assert inspect.isroutine(ConcreteRegistry.is_registered)
-        assert inspect.isroutine(ConcreteRegistry.get_registered_object)
-        assert inspect.isroutine(ConcreteRegistry.clear_registry)
-        assert inspect.isroutine(ConcreteRegistry.unregister)
+        assert inspect.isroutine(ConcreteIntegrationRegistry.is_auto_discovery_enabled)
+        assert inspect.isroutine(ConcreteIntegrationRegistry.register)
+        assert inspect.isroutine(ConcreteIntegrationRegistry.register_decorator)
+        assert inspect.isroutine(ConcreteIntegrationRegistry.auto_populate_registry)
+        assert inspect.isroutine(ConcreteIntegrationRegistry.registered_objects)
+        assert inspect.isroutine(ConcreteIntegrationRegistry.is_registered)
+        assert inspect.isroutine(ConcreteIntegrationRegistry.get_registered_object)
+        assert inspect.isroutine(ConcreteIntegrationRegistry.clear_registry)
+        assert inspect.isroutine(ConcreteIntegrationRegistry.unregister)
 
     @pytest.mark.smoke
     def test_initialization(self, valid_instances: DummyService) -> None:
@@ -140,74 +140,91 @@ class TestRegistryMixin:
         """Verify subclass registration works dynamically with name variations."""
 
         # Test no name default registration
-        @ConcreteRegistry.register()
+        @ConcreteIntegrationRegistry.register()
         class AutoNamedService:
             pass
 
         expected = AutoNamedService
-        assert ConcreteRegistry.get_registered_object("AutoNamedService") is expected
-        assert "AutoNamedService" in ConcreteRegistry.registry
+        assert (
+            ConcreteIntegrationRegistry.get_registered_object("AutoNamedService")
+            is expected
+        )
+        assert "AutoNamedService" in ConcreteIntegrationRegistry.registry
 
         # Test string name registration
-        @ConcreteRegistry.register("custom")
+        @ConcreteIntegrationRegistry.register("custom")
         class CustomNamedService:
             pass
 
-        assert ConcreteRegistry.get_registered_object("custom") is CustomNamedService
-        assert "custom" in ConcreteRegistry.registry
+        assert (
+            ConcreteIntegrationRegistry.get_registered_object("custom")
+            is CustomNamedService
+        )
+        assert "custom" in ConcreteIntegrationRegistry.registry
 
         # Test list of names registration
-        @ConcreteRegistry.register(["alias_one", "alias_two"])
+        @ConcreteIntegrationRegistry.register(["alias_one", "alias_two"])
         class MultiNamedService:
             pass
 
-        assert ConcreteRegistry.get_registered_object("alias_one") is MultiNamedService
-        assert ConcreteRegistry.get_registered_object("alias_two") is MultiNamedService
-        assert "alias_one" in ConcreteRegistry.registry
-        assert "alias_two" in ConcreteRegistry.registry
+        assert (
+            ConcreteIntegrationRegistry.get_registered_object("alias_one")
+            is MultiNamedService
+        )
+        assert (
+            ConcreteIntegrationRegistry.get_registered_object("alias_two")
+            is MultiNamedService
+        )
+        assert "alias_one" in ConcreteIntegrationRegistry.registry
+        assert "alias_two" in ConcreteIntegrationRegistry.registry
 
     @pytest.mark.sanity
     def test_register_decorator_invalid_name_format(self) -> None:
         """Verify registry decorator rejects unsupported name types."""
         with pytest.raises(ValueError, match="Unsupported naming format"):
-            ConcreteRegistry.register_decorator(DummyService, name=123)  # type: ignore
+            ConcreteIntegrationRegistry.register_decorator(DummyService, name=123)  # type: ignore
 
     @pytest.mark.sanity
     def test_register_decorator_non_string_sequence(self) -> None:
         """Verify registry decorator rejects non-string sequence items."""
         err_msg = "Registry keys must explicitly be strings"
         with pytest.raises(ValueError, match=err_msg):
-            ConcreteRegistry.register_decorator(DummyService, name=["valid", 456])  # type: ignore
+            ConcreteIntegrationRegistry.register_decorator(
+                DummyService,
+                name=["valid", 456],  # type: ignore
+            )
 
     @pytest.mark.regression
     def test_clear_registry(self) -> None:
         """Verify clear_registry resets active registries and flags."""
-        ConcreteRegistry.register_decorator(DummyService, name="temp")
-        ConcreteRegistry.registry_populated = True
-        assert len(ConcreteRegistry.registry) > 0
+        ConcreteIntegrationRegistry.register_decorator(DummyService, name="temp")
+        ConcreteIntegrationRegistry.registry_populated = True
+        assert len(ConcreteIntegrationRegistry.registry) > 0
 
-        ConcreteRegistry.clear_registry()
-        assert len(ConcreteRegistry.registry) == 0
-        assert len(ConcreteRegistry._lower_registry) == 0
-        assert ConcreteRegistry.registry_populated is False
+        ConcreteIntegrationRegistry.clear_registry()
+        assert len(ConcreteIntegrationRegistry.registry) == 0
+        assert len(ConcreteIntegrationRegistry._lower_registry) == 0
+        assert ConcreteIntegrationRegistry.registry_populated is False
 
     @pytest.mark.smoke
     def test_unregister(self) -> None:
         """Verify unregister programmatically removes mappings."""
-        ConcreteRegistry.register_decorator(DummyService, name="temp_service")
-        assert ConcreteRegistry.is_registered("temp_service")
+        ConcreteIntegrationRegistry.register_decorator(
+            DummyService, name="temp_service"
+        )
+        assert ConcreteIntegrationRegistry.is_registered("temp_service")
 
-        ConcreteRegistry.unregister("temp_service")
-        assert not ConcreteRegistry.is_registered("temp_service")
-        assert "temp_service" not in ConcreteRegistry.registry
-        assert "temp_service" not in ConcreteRegistry._lower_registry
+        ConcreteIntegrationRegistry.unregister("temp_service")
+        assert not ConcreteIntegrationRegistry.is_registered("temp_service")
+        assert "temp_service" not in ConcreteIntegrationRegistry.registry
+        assert "temp_service" not in ConcreteIntegrationRegistry._lower_registry
 
     @pytest.mark.sanity
     def test_unregister_not_found(self) -> None:
         """Verify unregister raises ValueError for missing key."""
-        err_msg = "is not present in the ConcreteRegistry registry"
+        err_msg = "is not present in the ConcreteIntegrationRegistry registry"
         with pytest.raises(ValueError, match=err_msg):
-            ConcreteRegistry.unregister("non_existent_key")
+            ConcreteIntegrationRegistry.unregister("non_existent_key")
 
     @pytest.mark.regression
     def test_auto_populate_registry(
@@ -220,9 +237,12 @@ class TestRegistryMixin:
 
         submodule_file = package_dir / "dynamic_mixin_sub.py"
         submodule_content = """from __future__ import annotations
-from tests.python.integration.test_registry import ConcreteRegistry, DummyService
+from tests.python.integration.test_registry import (
+    ConcreteIntegrationRegistry,
+    DummyService,
+)
 
-@ConcreteRegistry.register("mixin_dynamic")
+@ConcreteIntegrationRegistry.register("mixin_dynamic")
 class MixinDynamicService(DummyService):
     def __init__(self) -> None:
         super().__init__("mixin_dynamic", 999)
@@ -231,16 +251,18 @@ class MixinDynamicService(DummyService):
 
         monkeypatch.syspath_prepend(str(tmp_path))
 
-        monkeypatch.setattr(ConcreteRegistry, "registry_auto_discovery", True)
         monkeypatch.setattr(
-            ConcreteRegistry, "auto_package", "temp_discovery_mixin_pkg"
+            ConcreteIntegrationRegistry, "registry_auto_discovery", True
+        )
+        monkeypatch.setattr(
+            ConcreteIntegrationRegistry, "auto_package", "temp_discovery_mixin_pkg"
         )
 
         reset_settings()
 
         # Trigger auto populate
-        assert ConcreteRegistry.auto_populate_registry() is True
-        assert ConcreteRegistry.is_registered("mixin_dynamic")
+        assert ConcreteIntegrationRegistry.auto_populate_registry() is True
+        assert ConcreteIntegrationRegistry.is_registered("mixin_dynamic")
 
         # Clean up imported sys.modules
         sys.modules.pop("temp_discovery_mixin_pkg", None)
@@ -249,18 +271,18 @@ class MixinDynamicService(DummyService):
     @pytest.mark.regression
     def test_auto_populate_registry_already_populated(self) -> None:
         """Verify auto-population returns False if already populated."""
-        ConcreteRegistry.registry_auto_discovery = True
-        ConcreteRegistry.registry_populated = True
-        assert ConcreteRegistry.auto_populate_registry() is False
+        ConcreteIntegrationRegistry.registry_auto_discovery = True
+        ConcreteIntegrationRegistry.registry_populated = True
+        assert ConcreteIntegrationRegistry.auto_populate_registry() is False
 
     @pytest.mark.sanity
     def test_auto_populate_disabled(self) -> None:
         """Verify auto-population is rejected when auto discovery is disabled."""
-        ConcreteRegistry.registry_auto_discovery = False
+        ConcreteIntegrationRegistry.registry_auto_discovery = False
         get_settings().registry_auto_discovery = False
 
         with pytest.raises(ValueError, match="Auto-population rejected"):
-            ConcreteRegistry.auto_populate_registry()
+            ConcreteIntegrationRegistry.auto_populate_registry()
 
 
 class TestPydanticClassRegistryMixin:
@@ -581,15 +603,17 @@ class TestRegistryManager:
     @pytest.mark.smoke
     def test_list_registries(self) -> None:
         """Verify list_registries returns mapped registry class names and paths."""
-        ConcreteRegistry.clear_registry()
+        ConcreteIntegrationRegistry.clear_registry()
         BaseIntegrationModel.clear_registry()
 
-        ConcreteRegistry.register_decorator(DummyService, name="test_service")
+        ConcreteIntegrationRegistry.register_decorator(
+            DummyService, name="test_service"
+        )
         BaseIntegrationModel.register_decorator(TextIntegrationModel, name="test_text")
 
         registries_map = RegistryManager.list_registries()
-        assert "ConcreteRegistry" in registries_map
-        assert registries_map["ConcreteRegistry"] == {
+        assert "ConcreteIntegrationRegistry" in registries_map
+        assert registries_map["ConcreteIntegrationRegistry"] == {
             "test_service": "tests.python.integration.test_registry.DummyService"
         }
         assert "BaseIntegrationModel" in registries_map
@@ -600,46 +624,66 @@ class TestRegistryManager:
     @pytest.mark.regression
     def test_list_registries_fallback(self) -> None:
         """Verify path resolution fallback for objects without __name__ attribute."""
-        ConcreteRegistry.clear_registry()
+        ConcreteIntegrationRegistry.clear_registry()
         # Register a class instance object which doesn't have __name__
         fallback_target = DummyService("fallback", 42)
-        ConcreteRegistry.register_decorator(fallback_target, name="fallback_item")
+        ConcreteIntegrationRegistry.register_decorator(
+            fallback_target, name="fallback_item"
+        )
 
         registries_map = RegistryManager.list_registries()
         expected_path = f"{DummyService.__module__}.{DummyService.__name__}"
-        assert registries_map["ConcreteRegistry"]["fallback_item"] == expected_path
+        assert (
+            registries_map["ConcreteIntegrationRegistry"]["fallback_item"]
+            == expected_path
+        )
 
     @pytest.mark.smoke
     def test_discover_registries(self) -> None:
         """Verify discover_registries routine finds active subclasses."""
-        ConcreteRegistry.clear_registry()
+        ConcreteIntegrationRegistry.clear_registry()
         BaseIntegrationModel.clear_registry()
 
         registries = RegistryManager._discover_registries()
         registry_names = {registry_class.__name__ for registry_class in registries}
-        assert "ConcreteRegistry" in registry_names
+        assert "ConcreteIntegrationRegistry" in registry_names
         assert "BaseIntegrationModel" in registry_names
 
     @pytest.mark.regression
     def test_discover_registries_with_auto_discovery(
-        self, monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Verify discover_registries routine handles auto_packages.
 
         Also checks auto_populate routine.
         """
-        ConcreteRegistry.clear_registry()
+        package_directory = tmp_path / "temp_auto_discovery_pkg"
+        package_directory.mkdir()
+        (package_directory / "__init__.py").write_text("", encoding="utf-8")
+
+        submodule_file = package_directory / "dynamic_registry.py"
+        submodule_content = """from __future__ import annotations
+from disdantic.registry import RegistryMixin
+
+class DynamicAutoRegistry(RegistryMixin[type]):
+    registry_auto_discovery = True
+    auto_package = "temp_auto_discovery_pkg"
+"""
+        submodule_file.write_text(submodule_content, encoding="utf-8")
+
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        ConcreteIntegrationRegistry.clear_registry()
         BaseIntegrationModel.clear_registry()
 
-        monkeypatch.setattr(ConcreteRegistry, "registry_auto_discovery", True)
-        monkeypatch.setattr(
-            ConcreteRegistry, "auto_package", "tests.python.integration"
-        )
-        get_settings().auto_packages = ["tests.python.integration"]
+        get_settings().auto_packages = ["temp_auto_discovery_pkg"]
 
         registries = RegistryManager._discover_registries()
         registry_names = {registry_class.__name__ for registry_class in registries}
-        assert "ConcreteRegistry" in registry_names
+        assert "DynamicAutoRegistry" in registry_names
+
+        sys.modules.pop("temp_auto_discovery_pkg", None)
+        sys.modules.pop("temp_auto_discovery_pkg.dynamic_registry", None)
 
 
 class TestCLIEntrypoint:
@@ -649,10 +693,10 @@ class TestCLIEntrypoint:
     def clean_registries_fixture(self) -> Generator[None, None, None]:
         """Ensure clean registries and settings around CLI tests."""
         reset_settings()
-        ConcreteRegistry.clear_registry()
+        ConcreteIntegrationRegistry.clear_registry()
         BaseIntegrationModel.clear_registry()
         yield
-        ConcreteRegistry.clear_registry()
+        ConcreteIntegrationRegistry.clear_registry()
         BaseIntegrationModel.clear_registry()
         reset_settings()
 

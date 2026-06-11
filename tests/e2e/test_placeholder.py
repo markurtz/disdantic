@@ -16,6 +16,9 @@
 
 from __future__ import annotations
 
+import disdantic
 
-def test_placeholder():
-    assert True
+
+def test_placeholder() -> None:
+    """A bare minimum placeholder test that imports disdantic for coverage."""
+    assert disdantic.__version__ is not None

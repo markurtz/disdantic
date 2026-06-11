@@ -48,6 +48,13 @@ PRIMITIVE_TYPES: Annotated[
 ] = (str, int, float, bool, type(None))
 
 
+def _is_default_info(attr: Any) -> bool:
+    """Check if the class attribute is the default InfoMixin.info property."""
+    if isinstance(attr, property) and attr.fget is not None:
+        return getattr(attr.fget, "__qualname__", None) == "InfoMixin.info"
+    return False
+
+
 class InfoMixin:
     """Mixin providing runtime self-introspection to generate object structures.
 
@@ -105,7 +112,7 @@ class InfoMixin:
         if not isinstance(obj, type) and obj is not cls:
             try:
                 info_class_attr = getattr(type(obj), "info", None)
-                if info_class_attr is not InfoMixin.info and (
+                if not _is_default_info(info_class_attr) and (
                     info_class_attr is not None or hasattr(obj, "info")
                 ):
                     info_val = obj.info
@@ -268,7 +275,7 @@ class InfoMixin:
         val_id = id(val)
         visited.add(val_id)
         try:
-            if info_class_attr is InfoMixin.info:
+            if _is_default_info(info_class_attr):
                 extractor = getattr(type(val), "extract_from_obj", cls.extract_from_obj)
                 return extractor(val, visited)
             info_val = val.info

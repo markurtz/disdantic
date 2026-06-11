@@ -207,7 +207,7 @@ def schema(
     module_path, class_name = registry_path.rsplit(".", 1)
 
     try:
-        module = importlib.import_module(module_path)
+        module = importlib.import_module(module_path)  # nosemgrep
     except Exception as err:  # noqa: BLE001
         typer.echo(
             f"Error: Could not import module '{module_path}': {err}",

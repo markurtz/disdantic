@@ -267,7 +267,7 @@ def _scan_packages(
     # Recursively import package submodules and collect import errors.
     for package_name in packages:
         try:
-            package = importlib.import_module(package_name)
+            package = importlib.import_module(package_name)  # nosemgrep
         except Exception as error:  # noqa: BLE001
             errors_list.append(
                 f"Failed to import package root '{package_name}': {error}"
@@ -290,7 +290,7 @@ def _scan_packages(
                 if is_package or module_name in ignore_set:
                     continue
                 try:
-                    importlib.import_module(module_name)
+                    importlib.import_module(module_name)  # nosemgrep
                 except Exception as error:  # noqa: BLE001
                     errors_list.append(
                         f"Failed to import module '{module_name}': {error}"

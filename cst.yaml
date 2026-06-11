@@ -55,7 +55,7 @@ commandTests:
     expectedOutput:
       - "Usage: disdantic.*"
       - "diagnose"
-      - "setup"
+      - "schema"
   - name: "Verify disdantic module help command works"
     command: "python"
     args:
@@ -65,4 +65,4 @@ commandTests:
     expectedOutput:
       - "Usage: python -m disdantic.*"
       - "diagnose"
-      - "setup"
+      - "schema"
