@@ -26,7 +26,7 @@ runs:
     - name: Tag and Push
       shell: bash
       env:
-        TAG_NAME: ${{ inputs.tag-name }}
+        TAG_NAME: ${{ inputs['tag-name'] }}
       run: |-
         # Basic validation of the tag format (must start with v and be followed by 3 numbers separated by dots, with optional pre-release suffix)
         if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
