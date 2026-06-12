@@ -363,8 +363,8 @@ We maintain high quality gates using git workflows, automated reviews, and [GitH
 - **Tools**: Git
 - **Workflow & Commands**:
   - **Branching Model**: Standard branch prefixes are enforced:
-    - Features: `feature/short-description`
-    - Bugs: `bugfix/short-description`
+    - Features: `feat/short-description` or `feature/short-description`
+    - Bugs: `fix/short-description` or `bugfix/short-description`
     - Docs: `docs/short-description`
   - **Commit Messages**: Enforce [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `feat: ...`, `fix: ...`, `docs: ...`).
   - **Versioning Tags**: Release tags must follow semver format (`v*.*.*`).
@@ -424,10 +424,10 @@ Our pipelines use a highly modular and DRY architecture to avoid duplication of 
     - `pipeline-development.yml`: PR checks (quality, security, package build, tests, and documentation previews).
     - `pipeline-main.yml`: Triggered on push to `main` branch (runs full checks and deploys latest docs).
     - `pipeline-nightly.yml`: Nightly regression tests, vulnerability audits, and nightly releases.
-    - `pipeline-release.yml`: Release tag pushes (`v*.*.*`); packages binary builds, attests them, publishes to PyPI and GHCR, and creates releases.
+    - `pipeline-release.yml`: Release tag pushes (`v*.*.*`) or manual UI dispatch (`workflow_dispatch`) on `main` or `releases/*` branches; runs validation checks, tags/pushes the commit (if manually triggered), packages binary builds, attests them, publishes to PyPI and GHCR, and creates releases.
     - `pipeline-weekly.yml`: Scheduled weekly checks to verify environment health.
   - **Utility Workflows**:
-    - `util-development-cleanup.yml`: Cleans up transient PR doc deployments.
+    - `util-cleanup.yml`: Cleans up transient PR doc deployments.
     - `util-pr-comment.yml`: Securely posts PR comments (build status, compiled coverage summary, documentation previews, and build packages) to avoid fork permission limits.
 
 ### Local Workflow Testing with `act`

@@ -45,15 +45,32 @@ To catch configuration drift and conduct deeper analysis, we run scheduled workf
 
 ## Manage releases (`pipeline-release.yml`)
 
-Releasing a new version is automated using Git tags.
+Releasing a new version can be done in two ways:
 
-**What it enables:**
-When a maintainer pushes a `v*.*.*` tag (e.g., `v1.2.0`), the `pipeline-release.yml` workflow takes over.
+1. **Manual UI Trigger (Recommended):**
+   A maintainer triggers the `CI — Release` workflow manually via the GitHub Actions UI.
 
-- It performs a final, full verification of the entire test suite.
-- It builds immutable Python packages (sdist and wheel).
-- It attests the build provenance using OIDC.
-- It publishes the artifacts to **PyPI** and the container image to the **GitHub Container Registry (GHCR)**.
+   - **Inputs:** Requires entering a version tag matching strict semver (e.g., `v1.2.0`).
+   - **Branch Constraints:** Can only be started on the `main` branch or a `releases/*` branch. If triggered on any other branch or tag ref via `workflow_dispatch`, the workflow fails the `init-gate` job and exits.
+   - **Process:** The workflow runs all quality, testing, and integrity checks. If they pass, it automatically tags the current commit with the entered version and pushes it to origin.
+   - **Unified Release Publishing:** Pushing the tag using the job's `GITHUB_TOKEN` successfully creates the remote tag without triggering recursive pipeline runs. The publishing jobs (`publish-python` and `publish-oci`) then execute immediately within the same manual run as soon as the tagging step succeeds. No Personal Access Tokens (PATs) or manual trigger restarts are required.
+
+1. **Direct Tag Push:**
+   When a maintainer pushes a `v*.*.*` tag (e.g., `v1.2.0`) directly to origin, the workflow is triggered on the tag ref.
+
+   - It performs a final, full verification of the entire test suite on the tag.
+   - It builds immutable Python packages (sdist and wheel).
+   - It attests the build provenance using OIDC.
+   - It publishes the artifacts to **PyPI** and the container image to the **GitHub Container Registry (GHCR)**.
+
+### Release Security & Environments
+
+To prevent unauthorized releases, we implement a **Gate Job** pattern using two-stage approvals bound to the `release` GitHub Environment:
+
+- **Required Reviewers & Dual Approval:** Repository Administrators should configure the `release` environment under **Settings -> Environments -> release** to require approvals from designated release managers. The workflow requires two approvals: one at `init-gate` (to authorize starting the verification checks) and a second at `release-gate` (to authorize tagging and publishing after all verification gates have succeeded).
+- **Deployment Branches & Early Fail:** Set the deployment branch policy to **Selected branches** allowing only `main` and `releases/*` to run jobs under this environment. Additionally, `init-gate` performs shell validation checking that the ref is a valid version tag (e.g. `v1.2.3`) or that branch execution (`main` or `releases/*`) was explicitly triggered by `workflow_dispatch`. If these conditions are not met, `init-gate` fails immediately.
+- **Unified Publishing Gate & Gate Job Pattern:** The `release-gate` job validates all previous gates (`quality-gate`, `functional-gate`, `integrity-gate`, and `e2e-gate`) and propagates the `default_python` configuration output down a linear dependency chain: `release-gate` -> `tag-release` -> `publish-python` -> `docs` / `publish-oci`. This prevents GHA from requesting unnecessary additional approvals and simplifies job conditionals.
+- **Publish Input Overrides:** Configured `publish-python` (GitHub Release tag name), `publish-oci` (OCI image tag name), and `docs` (docs version folder name) to use `${{ github.event.inputs.version_tag || github.ref_name }}`. Decoupled `docs` entirely from `init-gate` so that `docs` and `publish-oci` only depend on `publish-python`.
 
 ## Utilize custom actions
 

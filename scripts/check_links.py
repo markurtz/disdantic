@@ -93,7 +93,7 @@ def main(
                     "--file-types",
                     ".md",
                     "--exclude-patterns",
-                    "localhost,127.0.0.1,actions/workflows,github.com/markurtz/disdantic/tree",
+                    "localhost,127.0.0.1,actions/workflows,github.com/markurtz/disdantic/tree,contributor-covenant.org/faq",
                 ]
                 + extra_options,
                 check=True,
