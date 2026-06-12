@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 import sys
 import types
 from collections.abc import Generator
@@ -101,3 +102,9 @@ def test_yaml_present_absent() -> None:
     """Verify yaml is exported and can be present or absent."""
     assert hasattr(compat, "yaml")
     assert compat.yaml is None or isinstance(compat.yaml, types.ModuleType)
+
+
+@pytest.mark.smoke
+def test_disable_pyston_env_var() -> None:
+    """Verify that DISABLE_PYSTON environment variable is configured to '1'."""
+    assert os.environ.get("DISABLE_PYSTON") == "1"

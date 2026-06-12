@@ -130,6 +130,7 @@ installer = "uv"
 [tool.hatch.envs.default.env-vars]
 COVERAGE_CORE = "pytrace"
 PYTHONPATH = "."
+DISABLE_PYSTON = "1"
 PYTHON_TARGETS = "docs examples scripts src tests"
 OCI_IMAGE = "disdantic:latest"
 MDFORMAT_TARGETS = ".devcontainer/ .github/ docs/*.md docs/community/ docs/examples/ docs/getting-started/ docs/guides/ examples/ scripts/ src/ tests/ *.md"
@@ -240,7 +241,10 @@ docs-serve = ["hatch run docs {args}", "hatch run project:docs-serve {args}"]
 template = "default"
 builder = true
 
-[[tool.hatch.envs.python.matrix]]
+[tool.hatch.envs.python-matrix]
+template = "python"
+
+[[tool.hatch.envs.python-matrix.matrix]]
 python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
 
