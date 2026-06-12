@@ -18,12 +18,12 @@
 # ------------------------------------------------------------------------------
 # Triggered by: Completion of the "CI — Development" workflow run.
 #
-# Part of the Unified Disdantic CI/CD Workflow:
+# Part of the Unified disdantic CI/CD Workflow:
 #      [ ] 1. DEVELOPMENT (PR validation, preview docs)
 #      [ ] 2. MAIN (Post-merge validation, main branch docs)
 #      [ ] 3. NIGHTLY (Daily check, pre-release publish, nightly docs)
 #      [ ] 4. WEEKLY (Weekly regression checks)
-#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs)
+#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs, manual trigger option)
 #      [ ] 6. UTILITY: CLEANUP (Daily stale docs/OCI image cleanup)
 #   -> [x] 7. UTILITY: PR COMMENTER (Coverage & builds reporting on PRs) <--- CURRENT WORKFLOW
 #
@@ -42,6 +42,8 @@ on:
 permissions:
   pull-requests: write
   actions: read
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 jobs:
   post_comment:
     name: "Post PR Status Comment"
@@ -50,6 +52,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          fetch-depth: 0
       - name: Resolve PR & SHA
         id: context
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea

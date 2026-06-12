@@ -12,6 +12,31 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# ==============================================================================
+# PIPELINE: CI — Development
+# ------------------------------------------------------------------------------
+# Triggered by: Pull Requests targeting the 'main' branch.
+#
+# Part of the Unified disdantic CI/CD Workflow:
+#   -> [x] 1. DEVELOPMENT (PR validation, preview docs) <--- CURRENT WORKFLOW
+#      [ ] 2. MAIN (Post-merge validation, main branch docs)
+#      [ ] 3. NIGHTLY (Daily check, pre-release publish, nightly docs)
+#      [ ] 4. WEEKLY (Weekly regression checks)
+#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs, manual trigger option)
+#      [ ] 6. UTILITY: CLEANUP (Daily stale docs/OCI image cleanup)
+#      [ ] 7. UTILITY: PR COMMENTER (Coverage & builds reporting on PRs)
+#
+# High-Level Execution flow & Job Dependencies:
+#
+#   [Pipeline Init] (Stage 0 Gate: init-gate)
+#         │
+#         ├──> [Quality Checks] ───────> [Quality Gate] ───┐
+#         ├──> [Functional Tests] ─────> [Functional Gate] ├─> [Build Gates] & PR Checks
+#         ├──> [Integrity Checks] ──────> [Integrity Gate]  │
+#         └──> [Build Jobs] ───────────> [Build Gate] ──────┘
+#
+# ==============================================================================
 name: "CI — Development"
 on:
   pull_request:
@@ -24,6 +49,8 @@ permissions:
   contents: write
   security-events: write
   pull-requests: write
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 jobs:
 
   # ── Stage 0: Pipeline Initialization ───────────────────────────────────────
