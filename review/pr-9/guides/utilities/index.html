@@ -2071,8 +2071,8 @@ limitations under the License.
 <h3 id="precedence-priority">Precedence Priority<a class="headerlink" href="#precedence-priority" title="Permanent link">&para;</a></h3>
 <p>Settings resolve variables across the following priority ladder:</p>
 <ol>
-<li><strong>Constructor arguments</strong> (e.g. <code>Settings(environment="production")</code>)</li>
-<li><strong>Environment variables</strong> prefixed with <code>DISDANTIC__</code> (e.g. <code>DISDANTIC__ENVIRONMENT="staging"</code>)</li>
+<li><strong>Constructor arguments</strong> (e.g. <code>Settings(default_schema_discriminator="custom_type")</code>)</li>
+<li><strong>Environment variables</strong> prefixed with <code>DISDANTIC__</code> (e.g. <code>DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR="custom_type"</code>)</li>
 <li><strong>Dotenv files</strong> (<code>.env</code>)</li>
 <li><strong><code>pyproject.toml</code></strong> config table (under <code>[tool.disdantic]</code>)</li>
 <li><strong>CLI arguments</strong> (prefixed with <code>disdantic_</code>)</li>
