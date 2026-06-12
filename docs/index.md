@@ -31,13 +31,17 @@ are licensed under the Apache License, Version 2.0.
 
 # disdantic
 
-**A lightweight collection of utilities and mixins for Pydantic.**
+**The missing polymorphic engine for Pydantic.**
 
 [Get Started](getting-started/index.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/markurtz/disdantic){ .md-button }
 
 </div>
 </div>
+
+## Overview
+
+`disdantic` is a lightweight Python toolkit designed to simplify Pydantic subclass registries, dynamic polymorphic unions, and automatic model discovery. By eliminating the manual boilerplate of maintaining union types and tracking child class imports, it allows you to build clean, extensible, and self-updating polymorphic domain models.
 
 ## What's Included
 

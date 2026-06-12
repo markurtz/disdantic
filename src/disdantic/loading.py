@@ -47,10 +47,11 @@ class LazyProxy:
     Example:
         .. code-block:: python
 
+            import types
             from disdantic.loading import LazyProxy
 
             def expensive_factory():
-                return {"data": 42}
+                return types.SimpleNamespace(data=42)
 
             proxy = LazyProxy(expensive_factory)
             # expensive_factory is not called yet

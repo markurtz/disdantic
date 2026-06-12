@@ -1,0 +1,4 @@
+# Requirements for Lazy Loading & Introspection Example
+# This example uses core Python features and the disdantic library.
+# Install disdantic in editable mode from the root directory:
+# pip install -e ../../

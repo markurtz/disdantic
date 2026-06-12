@@ -91,8 +91,8 @@ class TestCLIEntrypoint:
         assert result.exit_code != 0
 
     @pytest.mark.regression
-    @pytest.mark.parametrize("env_name", ["staging", "production"])
-    def test_settings_propagation(self, env_name: str) -> None:
+    @pytest.mark.parametrize("disc_name", ["custom_type", "model_type"])
+    def test_settings_propagation(self, disc_name: str) -> None:
         """Test CLI arguments settings propagation."""
         runner = CliRunner()
         instances: list[Settings] = []
@@ -103,13 +103,13 @@ class TestCLIEntrypoint:
             return instance
 
         original_argv = sys.argv
-        sys.argv = ["disdantic", "--disdantic_.environment", env_name]
+        sys.argv = ["disdantic", "--disdantic_.default_schema_discriminator", disc_name]
         try:
             with patch("disdantic.__main__.Settings", new=wrap_settings):
                 result = runner.invoke(app, [])
                 assert result.exit_code == 0
                 assert len(instances) == 1
-                assert instances[0].environment == env_name
+                assert instances[0].default_schema_discriminator == disc_name
         finally:
             sys.argv = original_argv
 
@@ -124,15 +124,19 @@ class TestCLIEntrypoint:
             instances.append(instance)
             return instance
 
-        monkeypatch.setenv("DISDANTIC__ENVIRONMENT", "production")
+        monkeypatch.setenv("DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR", "env_type")
         original_argv = sys.argv
-        sys.argv = ["disdantic", "--disdantic_.environment", "staging"]
+        sys.argv = [
+            "disdantic",
+            "--disdantic_.default_schema_discriminator",
+            "cli_type",
+        ]
         try:
             with patch("disdantic.__main__.Settings", new=wrap_settings):
                 result = runner.invoke(app, [])
                 assert result.exit_code == 0
                 assert len(instances) == 1
-                assert instances[0].environment == "production"
+                assert instances[0].default_schema_discriminator == "env_type"
         finally:
             sys.argv = original_argv
 
@@ -142,7 +146,7 @@ class TestCLIEntrypoint:
         toml_content = (
             "[tool.disdantic]\n"
             'default_schema_discriminator = "custom_type"\n'
-            'environment = "staging"\n'
+            "registry_auto_discovery = true\n"
         )
         toml_file = tmp_path / "pyproject.toml"
         toml_file.write_text(toml_content, encoding="utf-8")
@@ -150,7 +154,7 @@ class TestCLIEntrypoint:
         # Instantiate Settings targeting the temporary root
         settings = Settings(project_root=tmp_path)
         assert settings.default_schema_discriminator == "custom_type"
-        assert settings.environment == "staging"
+        assert settings.registry_auto_discovery is True
 
 
 class TestSettings:
@@ -174,7 +178,6 @@ class TestSettings:
         # Check that class signature contains key fields
         fields = Settings.model_fields
         assert "project_root" in fields
-        assert "environment" in fields
         assert "default_schema_discriminator" in fields
         assert "registry_auto_discovery" in fields
         assert "auto_packages" in fields
@@ -187,20 +190,18 @@ class TestSettings:
     def test_initialization(self, valid_instances: Settings) -> None:
         """Test proper initialization of Settings."""
         assert isinstance(valid_instances, Settings)
-        assert valid_instances.environment in {"development", "staging", "production"}
 
     @pytest.mark.sanity
     def test_invalid_initialization_values(self) -> None:
         """Verify that invalid field values raise ValidationError."""
         with pytest.raises(ValidationError):
-            Settings(environment=cast("Any", "invalid_env"))
+            Settings(registry_auto_discovery=cast("Any", "not_a_bool"))
 
     @pytest.mark.sanity
     def test_invalid_initialization_missing(self) -> None:
         """Verify initialization defaults when arguments are missing."""
         # By design, settings can be fully initialized without any arguments.
         settings = Settings()
-        assert settings.environment == "development"
         assert settings.default_schema_discriminator == "model_type"
 
     @pytest.mark.regression
@@ -222,21 +223,20 @@ class TestSettings:
         """Verify __str__ outputs correct information."""
         string_repr = str(valid_instances)
         assert "Settings(" in string_repr
-        assert f"environment='{valid_instances.environment}'" in string_repr
+        assert f"project_root={valid_instances.project_root!r}" in string_repr
 
     @pytest.mark.smoke
     def test_repr(self, valid_instances: Settings) -> None:
         """Verify __repr__ outputs correct debug information."""
         debug_repr = repr(valid_instances)
         assert "Settings(" in debug_repr
-        assert f"environment='{valid_instances.environment}'" in debug_repr
+        assert f"project_root={valid_instances.project_root!r}" in debug_repr
 
     @pytest.mark.regression
     def test_marshalling(self, valid_instances: Settings) -> None:
         """Verify data dump and reload validation integrity."""
         dumped_data = valid_instances.model_dump()
         reloaded_settings = Settings.model_validate(dumped_data)
-        assert reloaded_settings.environment == valid_instances.environment
         assert reloaded_settings.project_root == valid_instances.project_root
         assert reloaded_settings.auto_packages == valid_instances.auto_packages
 
@@ -248,9 +248,8 @@ class TestGetSettings:
     @pytest.mark.parametrize(
         ("env_var", "env_value", "expected_val"),
         [
-            ("DISDANTIC__ENVIRONMENT", "staging", "staging"),
-            ("DISDANTIC__ENVIRONMENT", "production", "production"),
             ("DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR", "custom_key", "custom_key"),
+            ("DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR", "another_key", "another_key"),
         ],
     )
     def test_invocation(
@@ -271,9 +270,7 @@ class TestGetSettings:
 
         # Assertions
         assert settings_one is settings_two
-        if env_var == "DISDANTIC__ENVIRONMENT":
-            assert settings_one.environment == expected_val
-        elif env_var == "DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR":
+        if env_var == "DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR":
             assert settings_one.default_schema_discriminator == expected_val
 
         # Teardown
@@ -283,7 +280,6 @@ class TestGetSettings:
     @pytest.mark.parametrize(
         ("env_var", "invalid_value"),
         [
-            ("DISDANTIC__ENVIRONMENT", "invalid_env_name"),
             ("DISDANTIC__REGISTRY_AUTO_DISCOVERY", "not_a_bool"),
             ("DISDANTIC__ENABLE_SCHEMA_REBUILDING", "not_a_bool"),
         ],
@@ -342,8 +338,8 @@ class TestResetSettings:
     @pytest.mark.parametrize(
         ("env_var", "env_value"),
         [
-            ("DISDANTIC__ENVIRONMENT", "staging"),
-            ("DISDANTIC__ENVIRONMENT", "production"),
+            ("DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR", "custom_type"),
+            ("DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR", "another_type"),
         ],
     )
     def test_invocation(
@@ -364,7 +360,7 @@ class TestResetSettings:
 
         # Assertions
         assert settings_one is not settings_two
-        assert settings_two.environment == env_value
+        assert settings_two.default_schema_discriminator == env_value
 
         # Teardown
         reset_settings()
@@ -385,7 +381,7 @@ class TestResetSettings:
 
         # Verify get_settings still works and constructs a fresh default instance
         settings_instance = get_settings()
-        assert settings_instance.environment == "development"
+        assert settings_instance.default_schema_discriminator == "model_type"
 
         # Teardown
         reset_settings()

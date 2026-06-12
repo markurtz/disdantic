@@ -33,9 +33,9 @@ class TestUnifiedGlobalConfigurationHierarchy:
 
     @pytest.fixture(
         params=[
-            {"environment": "development"},
-            {"environment": "staging"},
-            {"environment": "production"},
+            {},
+            {"default_schema_discriminator": "custom_type"},
+            {"registry_auto_discovery": True},
         ]
     )
     def valid_instances(self, request: pytest.FixtureRequest) -> Settings:
@@ -43,10 +43,9 @@ class TestUnifiedGlobalConfigurationHierarchy:
         return Settings(**request.param)
 
     @pytest.mark.smoke
-    def test_environment_contract(self) -> None:
-        """Validate structural environment contracts of Settings."""
+    def test_settings_contract(self) -> None:
+        """Validate structural contracts of Settings."""
         fields = Settings.model_fields
-        assert "environment" in fields
         assert "project_root" in fields
         assert "default_schema_discriminator" in fields
         assert "registry_auto_discovery" in fields
@@ -58,23 +57,21 @@ class TestUnifiedGlobalConfigurationHierarchy:
 
     @pytest.mark.smoke
     def test_initialization(self, valid_instances: Settings) -> None:
-        """Verify correct initial wiring and environment options."""
+        """Verify correct initial wiring."""
         assert isinstance(valid_instances, Settings)
-        assert valid_instances.environment in {"development", "staging", "production"}
         assert isinstance(valid_instances.project_root, Path)
 
     @pytest.mark.sanity
     def test_invalid_initialization_values(self) -> None:
         """Verify that passing invalid configuration values raises ValidationError."""
         with pytest.raises(ValidationError) as validation_error:
-            Settings(environment=cast("Any", "invalid_environment_name"))
-        assert "environment" in str(validation_error.value)
+            Settings(registry_auto_discovery=cast("Any", "not_a_boolean"))
+        assert "registry_auto_discovery" in str(validation_error.value)
 
     @pytest.mark.sanity
     def test_invalid_initialization_missing(self) -> None:
         """Verify initialization defaults when arguments are omitted."""
         settings_instance = Settings()
-        assert settings_instance.environment == "development"
         assert settings_instance.default_schema_discriminator == "model_type"
         assert settings_instance.registry_auto_discovery is False
 
@@ -83,7 +80,6 @@ class TestUnifiedGlobalConfigurationHierarchy:
         """Verify model serialization and deserialization boundaries."""
         dumped_data = valid_instances.model_dump()
         reloaded_instance = Settings.model_validate(dumped_data)
-        assert reloaded_instance.environment == valid_instances.environment
         assert reloaded_instance.project_root == valid_instances.project_root
         assert reloaded_instance.auto_packages == valid_instances.auto_packages
 
@@ -99,14 +95,14 @@ class TestUnifiedGlobalConfigurationHierarchy:
         # Create a mock pyproject.toml in the temporary path
         toml_content = (
             "[tool.disdantic]\n"
-            "environment = 'development'\n"
+            "registry_auto_discovery = false\n"
             "default_schema_discriminator = 'toml_discriminator'\n"
         )
         pyproject_file = tmp_path / "pyproject.toml"
         pyproject_file.write_text(toml_content, encoding="utf-8")
 
         # Set environment variables
-        monkeypatch.setenv("DISDANTIC__ENVIRONMENT", "staging")
+        monkeypatch.setenv("DISDANTIC__REGISTRY_AUTO_DISCOVERY", "true")
         monkeypatch.setenv(
             "DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR", "env_discriminator"
         )
@@ -114,10 +110,10 @@ class TestUnifiedGlobalConfigurationHierarchy:
         # 1. Constructor parameters must have highest priority
         settings_constructor = Settings(
             project_root=tmp_path,
-            environment="production",
+            registry_auto_discovery=False,
             default_schema_discriminator="constructor_discriminator",
         )
-        assert settings_constructor.environment == "production"
+        assert settings_constructor.registry_auto_discovery is False
         assert (
             settings_constructor.default_schema_discriminator
             == "constructor_discriminator"
@@ -125,14 +121,14 @@ class TestUnifiedGlobalConfigurationHierarchy:
 
         # 2. Environment variables override pyproject.toml configurations
         settings_env = Settings(project_root=tmp_path)
-        assert settings_env.environment == "staging"
+        assert settings_env.registry_auto_discovery is True
         assert settings_env.default_schema_discriminator == "env_discriminator"
 
         # 3. pyproject.toml configurations override default values
-        monkeypatch.delenv("DISDANTIC__ENVIRONMENT", raising=False)
+        monkeypatch.delenv("DISDANTIC__REGISTRY_AUTO_DISCOVERY", raising=False)
         monkeypatch.delenv("DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR", raising=False)
         settings_toml = Settings(project_root=tmp_path)
-        assert settings_toml.environment == "development"
+        assert settings_toml.registry_auto_discovery is False
         assert settings_toml.default_schema_discriminator == "toml_discriminator"
 
     @pytest.mark.regression

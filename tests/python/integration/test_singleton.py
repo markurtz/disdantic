@@ -56,7 +56,7 @@ class ConfiguredService(metaclass=SingletonMeta):
 
     def __init__(self) -> None:
         settings = get_settings()
-        self.environment = settings.environment
+        self.default_schema_discriminator = settings.default_schema_discriminator
         self.project_root = settings.project_root
 
 
@@ -219,17 +219,17 @@ class TestSingletonMeta:
 
         # Verify initial config load
         service = ConfiguredService()
-        assert service.environment == "development"
+        assert service.default_schema_discriminator == "model_type"
 
         # Mutate environment variables to test settings precedence
-        os.environ["DISDANTIC__ENVIRONMENT"] = "production"
+        os.environ["DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR"] = "custom_type"
         reset_settings()
 
         # Accessing the singleton again still returns the cached instance
         # with old settings because it is a singleton and has not been cleared
         service_cached = ConfiguredService()
         assert service_cached is service
-        assert service_cached.environment == "development"
+        assert service_cached.default_schema_discriminator == "model_type"
 
         # Now clear the singleton to allow reloading settings
         ConfiguredService.clear_instances()
@@ -237,10 +237,10 @@ class TestSingletonMeta:
         # Instantiating now should load the updated settings
         service_reloaded = ConfiguredService()
         assert service_reloaded is not service
-        assert service_reloaded.environment == "production"
+        assert service_reloaded.default_schema_discriminator == "custom_type"
 
         # Teardown: Clean up env variables and reset settings
-        os.environ.pop("DISDANTIC__ENVIRONMENT", None)
+        os.environ.pop("DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR", None)
         reset_settings()
         SingletonMeta.clear_all_singletons()
 

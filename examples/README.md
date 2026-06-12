@@ -33,23 +33,31 @@ Before running the examples, ensure you have set up your environment correctly:
 
 ## Example Index
 
-Below is a curated list of available examples, categorized by build tool and use case:
+Below is a curated list of available examples:
 
-### Benchmarking & Network Examples
-
-| Example                                      | Complexity | Description                                                              |
-| :------------------------------------------- | :--------- | :----------------------------------------------------------------------- |
-| **`[example_template/](example_template/)`** | Beginner   | Generic boilerplate template demonstrating standard example conventions. |
-
-<!-- Add new examples to the tables above as they are created. -->
+| Example                                                                  | Complexity   | Description                                                                                                                                                   |
+| :----------------------------------------------------------------------- | :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`[polymorphic_messaging/](polymorphic_messaging/)`**                   | Beginner     | Dynamic subclass registration, case-insensitive lookahead discriminator routing, and cascading validation schema rebuilding.                                  |
+| **`[telemetry_and_settings/](telemetry_and_settings/)`**                 | Intermediate | Workspace configuration via `pyproject.toml`, setting priority hierarchy, registry fallback settings, and structured JSON logging with OpenTelemetry tracing. |
+| **`[lazy_loading_and_introspection/](lazy_loading_and_introspection/)`** | Intermediate | Thread-safe `LazyProxy` deferred loading, double-checked locking `SingletonMeta`, and circular-reference-safe runtime self-introspection with `InfoMixin`.    |
+| **`[auto_discovery_and_diagnostics/](auto_discovery_and_diagnostics/)`** | Advanced     | Automatic package scanning/registration using `AutoImporterMixin`, programmatic and CLI registry diagnostics, and schema exports.                             |
 
 ## Running the Examples
 
-Most examples can be executed directly from the command line. Navigate to the root of the repository and run the desired script:
+Most examples can be executed directly from the command line using Hatch. Navigate to the root of the repository and run the desired script:
 
 ```bash
-# Example: Running a generic example script
-python examples/example_name/main.py
+# Run Polymorphic Messaging Example
+.venv/bin/hatch run python examples/polymorphic_messaging/main.py
+
+# Run Telemetry & Settings Example
+.venv/bin/hatch run python examples/telemetry_and_settings/main.py
+
+# Run Lazy Loading & Introspection Example
+.venv/bin/hatch run python examples/lazy_loading_and_introspection/main.py
+
+# Run Auto-Discovery & Diagnostics Example (Programmatic)
+.venv/bin/hatch run python:python examples/auto_discovery_and_diagnostics/main.py
 ```
 
 > [!TIP]

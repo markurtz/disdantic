@@ -20,7 +20,7 @@ This file provides repository-specific context, setup instructions, executable c
 
 ## System Overview
 
-`disdantic` is a lightweight collection of utilities and mixins for Pydantic. disdantic simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate.
+`disdantic` is the missing polymorphic engine for Pydantic. It simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate.
 
 - **Primary Languages:** Python 3.10+
 - **Configuration & Build Backend:** Hatch

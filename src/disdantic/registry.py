@@ -556,9 +556,6 @@ class RegistryManager:
             registries = RegistryManager.list_registries()
     """
 
-    # 1. Public static / Class-level attributes and properties (None)
-
-    # 2. Public static / Class methods
     @classmethod
     def list_registries(cls) -> dict[str, dict[str, str]]:
         """
@@ -585,13 +582,6 @@ class RegistryManager:
             }
         return result
 
-    # 3. Public instance constructors (__init__) and other dunder methods (None)
-
-    # 4. Public instance properties (None)
-
-    # 5. Public instance methods (None)
-
-    # 6. Private methods (prefixed with _):
     @classmethod
     def _discover_registries(cls) -> list[type[RegistryMixin[Any]]]:
         settings = get_settings()

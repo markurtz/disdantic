@@ -19,7 +19,7 @@ build-backend = "hatchling.build"
 [project]
 name = "disdantic"
 dynamic = ["version"]
-description = "A lightweight collection of utilities and mixins for Pydantic. disdantic simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate."
+description = "The missing polymorphic engine for Pydantic. disdantic simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
@@ -288,13 +288,13 @@ tests-int-cov = [
   "python -m pytest --cov={env:PYTHON_SRC} --cov-report=term --cov-report=markdown:{env:PYTHON_COV_DIR}/coverage_tests-int.md {env:PYTHON_INT_TESTS} {args}",
 ]
 tests-e2e = [
-  "hatch build",
+  "hatch build -c",
   "pip install --force-reinstall --no-deps --no-index --find-links=dist disdantic",
   "python -m pytest {env:E2E_TESTS} {args}",
 ]
 tests-e2e-cov = [
   "python -c \"import pathlib; pathlib.Path('{env:PYTHON_COV_DIR}').mkdir(parents=True, exist_ok=True)\"",
-  "hatch build",
+  "hatch build -c",
   "pip install --force-reinstall --no-deps --no-index --find-links=dist disdantic",
   "python -m pytest --cov=disdantic --cov-report=term --cov-report=markdown:{env:PYTHON_COV_DIR}/coverage_tests-e2e.md {env:E2E_TESTS} {args}",
 ]

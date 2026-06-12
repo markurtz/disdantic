@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
-from typing import ClassVar, Literal
+from typing import ClassVar
 
 from pydantic import Field
 from pydantic_settings import (
@@ -56,8 +56,8 @@ class Settings(BaseSettings):
             from disdantic.settings import Settings, get_settings
 
             # Initialize a localized settings instance
-            settings = Settings(environment="production")
-            assert settings.environment == "production"
+            settings = Settings(default_schema_discriminator="custom_type")
+            assert settings.default_schema_discriminator == "custom_type"
 
             # Retrieve the global settings singleton instance
             global_settings = get_settings()
@@ -85,13 +85,6 @@ class Settings(BaseSettings):
         default_factory=Path.cwd,
         description=(
             "Maps the file system paths and resolves relative configuration files."
-        ),
-    )
-    environment: Literal["development", "staging", "production"] = Field(
-        default="development",
-        description=(
-            "Configures the active deployment environment, mapping logging "
-            "verbosity and telemetry options."
         ),
     )
 
@@ -196,22 +189,14 @@ class Settings(BaseSettings):
 
         :returns: A human-readable string summary of the configuration state.
         """
-        return (
-            f"Settings(environment={self.environment!r}, "
-            f"project_root={self.project_root!r})"
-        )
+        return f"Settings(project_root={self.project_root!r})"
 
     def __repr__(self) -> str:
         """Generate a detailed string representation of the settings.
 
         :returns: A detailed debug string representation of the settings.
         """
-        return (
-            f"Settings("
-            f"environment={self.environment!r}, "
-            f"project_root={self.project_root!r}"
-            f")"
-        )
+        return f"Settings(project_root={self.project_root!r})"
 
 
 def get_settings() -> Settings:
@@ -226,7 +211,7 @@ def get_settings() -> Settings:
             from disdantic.settings import get_settings
 
             settings = get_settings()
-            print(settings.environment)
+            print(settings.project_root)
 
     :returns: The global Settings singleton instance.
     """

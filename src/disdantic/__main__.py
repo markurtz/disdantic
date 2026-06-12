@@ -48,7 +48,7 @@ from disdantic.version import __version__
 __all__ = ["main"]
 
 app = typer.Typer(
-    help="Disdantic: A lightweight collection of utilities and mixins for Pydantic.",
+    help="Disdantic: The missing polymorphic engine for Pydantic.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 
