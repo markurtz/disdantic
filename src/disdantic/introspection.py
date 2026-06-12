@@ -30,13 +30,12 @@ import collections.abc
 import json
 from typing import Annotated, Any
 
-from disdantic.loading import LazyLoader, LazyProxy
-from disdantic.settings import get_settings
+from pydantic import BaseModel
 
-try:
-    yaml = LazyLoader.load_module_proxy("yaml")
-except (ImportError, ModuleNotFoundError):
-    yaml = None
+from disdantic.compat import yaml
+from disdantic.loading import LazyProxy
+from disdantic.registry import RegistryMixin
+from disdantic.settings import get_settings
 
 __all__ = ["PRIMITIVE_TYPES", "InfoMixin"]
 
@@ -48,13 +47,6 @@ PRIMITIVE_TYPES: Annotated[
 ] = (str, int, float, bool, type(None))
 
 
-def _is_default_info(attr: Any) -> bool:
-    """Check if the class attribute is the default InfoMixin.info property."""
-    if isinstance(attr, property) and attr.fget is not None:
-        return getattr(attr.fget, "__qualname__", None) == "InfoMixin.info"
-    return False
-
-
 class InfoMixin:
     """Mixin providing runtime self-introspection to generate object structures.
 
@@ -62,27 +54,6 @@ class InfoMixin:
     properties, slots, and instance dicts as sanitized primitives. It recursively
     inspects objects, resolves lazy loaders or proxies, and handles circular reference
     loops and property extraction errors without raising exceptions.
-
-    Example:
-        .. code-block:: python
-
-            from disdantic.introspection import InfoMixin
-
-            class User(InfoMixin):
-                def __init__(self, name: str, email: str):
-                    self.name = name
-                    self.email = email
-                    self._password_hash = "secret"
-
-            user = User("Alice", "alice@example.com")
-            print(user.info)
-            # Output:
-            # {
-            #     "str": "<User object at ...>",
-            #     "type": "User",
-            #     "module": "__main__",
-            #     "attributes": {"name": "Alice", "email": "alice@example.com"}
-            # }
     """
 
     @classmethod
@@ -94,17 +65,6 @@ class InfoMixin:
         This method recursively crawls the object to extract public fields,
         evaluates custom `.info` hooks if defined, and translates collections
         or nested objects into JSON/YAML compatible dictionaries.
-
-        Example:
-            .. code-block:: python
-
-                from disdantic.introspection import InfoMixin
-
-                data = InfoMixin.extract_from_obj([1, 2, 3])
-
-        :param obj: The target object to inspect and extract public state from.
-        :param visited: Optional set of object IDs to prevent circular cycles.
-        :returns: A dictionary containing the object's metadata and attributes.
         """
         if visited is None:
             visited = set()
@@ -116,7 +76,8 @@ class InfoMixin:
                     info_class_attr is not None or hasattr(obj, "info")
                 ):
                     info_val = obj.info
-                    return dict(info_val() if callable(info_val) else info_val)
+                    raw_info = info_val() if callable(info_val) else info_val
+                    return dict(cls._sanitize(raw_info, visited))
             except Exception:  # noqa: BLE001, S110
                 pass
 
@@ -130,23 +91,23 @@ class InfoMixin:
             visited.discard(obj_id)
 
         return {
-            "str": str(obj),
+            "str": cls._sanitize_fallback(obj),
             "type": obj_class.__name__,
             "module": obj_class.__module__,
             "attributes": attributes,
         }
 
+    def __repr__(self) -> str:
+        """__repr__ delegating to MRO overrides or fallback."""
+        return self._delegate_dunder("__repr__")
+
+    def __str__(self) -> str:
+        """__str__ delegating to MRO overrides or fallback."""
+        return self._delegate_dunder("__str__")
+
     @property
     def info(self) -> dict[str, Any]:
-        """Self-introspection dictionary representing the public state of the instance.
-
-        Example:
-            .. code-block:: python
-
-                info_dict = instance.info
-
-        :return: A mapping of the calling instance's public state.
-        """
+        """Self-introspection dictionary representing the public state."""
         return self.extract_from_obj(self)
 
     def info_json(
@@ -156,19 +117,8 @@ class InfoMixin:
         sort_keys: bool = False,
         **kwargs: Any,
     ) -> str:
-        """Serialize the introspection info dictionary into a valid JSON string.
-
-        Example:
-            .. code-block:: python
-
-                json_data = instance.info_json(indent=2)
-
-        :param indent: Prettify the output with the given indentation space count.
-        :param sort_keys: Sort dictionary keys alphabetically before serialization.
-        :param kwargs: Additional arguments to pass to the underlying JSON serializer.
-        :returns: A JSON string representation of the instance's public state.
-        """
-        prepared = self._prepare_for_serialization(self.info)
+        """Serialize the introspection info dictionary into a valid JSON string."""
+        prepared = self._sanitize(self.info, set())
         return json.dumps(prepared, indent=indent, sort_keys=sort_keys, **kwargs)
 
     def info_yaml(
@@ -178,32 +128,63 @@ class InfoMixin:
         sort_keys: bool = False,
         **kwargs: Any,
     ) -> str:
-        """Serialize the introspection info dictionary into a valid YAML string.
+        """Serialize the introspection info dictionary into a valid YAML string."""
+        if yaml is None:
+            raise ImportError(
+                "PyYAML is required for YAML serialization. "
+                "Install disdantic with the 'yaml' extra: pip install disdantic[yaml]"
+            )
+        prepared = self._sanitize(self.info, set())
+        return yaml.dump(prepared, indent=indent, sort_keys=sort_keys, **kwargs)
 
-        This method dynamically delegates to the PyYAML library if it is installed
-        in the environment, falling back to a custom pure-Python YAML emitter.
+    def _delegate_dunder(self, name: str) -> str:
+        # Delegate repr/str dunder method to MRO overrides or fallback.
+        for cls_item in self.__class__.__mro__:
+            if cls_item.__name__ in (
+                "InfoMixin",
+                "object",
+                "BaseModel",
+                "ReloadableBaseModel",
+            ):
+                continue
+            if name in cls_item.__dict__:
+                return str(getattr(cls_item, name)(self))
+        return f"<{self.__class__.__name__} info={self.info}>"
 
-        Example:
-            .. code-block:: python
+    @classmethod
+    def _is_class_variable(cls, obj: Any, key: str) -> bool:
+        # Check if the key is defined on class, not instance dict/slots
+        if isinstance(obj, type):
+            return False
 
-                yaml_data = instance.info_yaml(indent=2)
+        if hasattr(obj, "__dict__") and key in obj.__dict__:
+            return False
 
-        :param indent: Prettify the output with the given indentation space count.
-        :param sort_keys: Sort dictionary keys alphabetically before serialization.
-        :param kwargs: Additional arguments to pass to the underlying YAML serializer.
-        :returns: A YAML string representation of the instance's public state.
-        """
-        prepared = self._prepare_for_serialization(self.info)
-        if yaml is not None:
-            return yaml.dump(prepared, indent=indent, sort_keys=sort_keys, **kwargs)
+        # Slots check across MRO
+        for mro_cls in type(obj).__mro__:
+            slots = getattr(mro_cls, "__slots__", None)
+            if slots and key in slots:
+                return False
 
-        indent_spaces = 2 if indent is None else indent
-        res = self._to_fallback_yaml(
-            prepared, indent_level=0, indent_spaces=indent_spaces, sort_keys=sort_keys
-        )
-        if res and not res.endswith("\n"):
-            res += "\n"
-        return res
+        # Check if the key is defined on any class in the MRO.
+        for mro_cls in type(obj).__mro__:
+            if key in mro_cls.__dict__:
+                class_attr = mro_cls.__dict__[key]
+                # If it has a __get__ method (e.g. property, method, descriptor),
+                # it's evaluated on the instance and represents instance state.
+                return not hasattr(class_attr, "__get__")
+
+        return False
+
+    @classmethod
+    def _has_info_protocol(cls, val: Any) -> bool:
+        # Check if an object implements the info protocol without evaluating it.
+        try:
+            return getattr(type(val), "info", None) is not None or (
+                hasattr(val, "__dict__") and "info" in val.__dict__
+            )
+        except Exception:  # noqa: BLE001
+            return False
 
     @classmethod
     def _extract_attributes(cls, obj: Any, visited: set[int]) -> dict[str, Any]:
@@ -211,9 +192,31 @@ class InfoMixin:
         attributes: dict[str, Any] = {}
 
         exclude_keys = set(get_settings().info_exclude_keys)
+        is_pydantic = isinstance(obj, BaseModel)
+        is_registry = isinstance(obj, RegistryMixin)
 
         for key in dir(obj):
             if key.startswith("_") or key in exclude_keys:
+                continue
+
+            if is_pydantic and key in (
+                "model_fields",
+                "model_computed_fields",
+                "model_config",
+                "model_fields_set",
+                "model_extra",
+            ):
+                continue
+
+            if is_registry and key in (
+                "registry",
+                "registry_auto_discovery",
+                "registry_populated",
+                "schema_discriminator",
+            ):
+                continue
+
+            if cls._is_class_variable(obj, key):
                 continue
 
             try:
@@ -221,188 +224,95 @@ class InfoMixin:
                 if isinstance(val, collections.abc.Callable):
                     continue
 
-                attributes[key] = cls._sanitize_value(val, visited)
+                attributes[key] = cls._sanitize(val, visited)
             except Exception as err:  # noqa: BLE001
                 attributes[key] = f"<Extraction Error: {err!r}>"
 
         return attributes
 
     @classmethod
-    def _sanitize_value(cls, val: Any, visited: set[int] | None = None) -> Any:
-        # Recursively processes arrays and values into primitives.
-        # Prevents infinite loops by reference tracking.
-        if visited is None:
-            visited = set()
-
+    def _sanitize(cls, val: Any, visited: set[int]) -> Any:
+        # Unified recursive sanitization and preparation for serialization.
         if isinstance(val, LazyProxy):
             val = val._resolve()  # noqa: SLF001
 
         val_id = id(val)
         if val_id in visited:
-            return f"<CircularReference: ID {val_id}>"
-
-        if isinstance(val, PRIMITIVE_TYPES):
-            return val
-
-        if isinstance(val, list | tuple | set | dict):
-            return cls._sanitize_collection(val, visited)
-
-        if not isinstance(val, type):
-            return cls._sanitize_custom(val, visited)
-
-        return repr(val)
-
-    @classmethod
-    def _sanitize_collection(cls, val: Any, visited: set[int]) -> Any:
-        val_id = id(val)
-        visited.add(val_id)
-        try:
-            if isinstance(val, dict):
-                return {
-                    str(item_key): cls._sanitize_value(item_val, visited)
+            res = f"<CircularReference: ID {val_id}>"
+        elif isinstance(val, PRIMITIVE_TYPES):
+            res = val
+        elif isinstance(val, dict):
+            visited.add(val_id)
+            try:
+                res = {
+                    str(item_key): cls._sanitize(item_val, visited)
                     for item_key, item_val in val.items()
                 }
-            return [cls._sanitize_value(item, visited) for item in val]
-        finally:
-            visited.discard(val_id)
+            finally:
+                visited.discard(val_id)
+        elif isinstance(val, list | tuple | set):
+            visited.add(val_id)
+            try:
+                res = [cls._sanitize(item, visited) for item in val]
+            finally:
+                visited.discard(val_id)
+        elif isinstance(val, type):
+            try:
+                res = repr(val)
+            except Exception:  # noqa: BLE001
+                res = f"<{val.__name__} object at {hex(id(val))}>"
+        elif cls._has_info_protocol(val):
+            res = cls._sanitize_custom(val, val_id, visited)
+        else:
+            res = cls._sanitize_fallback(val)
+
+        return res
 
     @classmethod
-    def _sanitize_custom(cls, val: Any, visited: set[int]) -> Any:
-        info_class_attr = getattr(type(val), "info", None)
-        if info_class_attr is None and not hasattr(val, "info"):
-            return repr(val)
-
-        val_id = id(val)
-        visited.add(val_id)
+    def _sanitize_custom(cls, val: Any, val_id: int, visited: set[int]) -> Any:
+        # Sanitize a custom object that implements the info protocol.
         try:
-            if _is_default_info(info_class_attr):
-                extractor = getattr(type(val), "extract_from_obj", cls.extract_from_obj)
-                return extractor(val, visited)
-            info_val = val.info
-            return info_val() if callable(info_val) else info_val
-        except Exception:  # noqa: BLE001, S110
-            return repr(val)
-        finally:
-            visited.discard(val_id)
+            info_class_attr = getattr(type(val), "info", None)
+            visited.add(val_id)
+            try:
+                if _is_default_info(info_class_attr):
+                    return cls.extract_from_obj(val, visited)
+                info_val = val.info
+                raw_info = info_val() if callable(info_val) else info_val
+                return cls._sanitize(raw_info, visited)
+            finally:
+                visited.discard(val_id)
+        except Exception:  # noqa: BLE001
+            return cls._sanitize_fallback(val)
 
     @classmethod
-    def _prepare_for_serialization(
-        cls, obj: Any, visited: set[int] | None = None
-    ) -> Any:
-        if visited is None:
-            visited = set()
-
-        is_container = isinstance(obj, dict | list | set | tuple)
-        obj_id = id(obj)
-
-        if is_container:
-            if obj_id in visited:
-                return f"<CircularReference: ID {obj_id}>"
-            visited.add(obj_id)
-
+    def _sanitize_fallback(cls, val: Any) -> str:
+        # Get a safe string representation of val, avoiding infinite loops.
+        val_class = getattr(val, "__class__", type(val))
+        fallback = f"<{val_class.__name__} object at {hex(id(val))}>"
         try:
-            if isinstance(obj, str | int | float | bool | type(None)):
-                return obj
-            elif isinstance(obj, dict):
-                return {
-                    str(key): cls._prepare_for_serialization(val, visited)
-                    for key, val in obj.items()
-                }
-            elif isinstance(obj, list | tuple | set):
-                return [cls._prepare_for_serialization(item, visited) for item in obj]
-            else:
-                return str(obj)
-        finally:
-            if is_container:
-                visited.discard(obj_id)
-
-    @classmethod
-    def _to_fallback_yaml(
-        cls,
-        obj: Any,
-        indent_level: int = 0,
-        indent_spaces: int = 2,
-        sort_keys: bool = False,
-    ) -> str:
-        if isinstance(obj, dict):
-            return cls._to_fallback_yaml_dict(
-                obj, indent_level, indent_spaces, sort_keys
-            )
-        if isinstance(obj, list | tuple | set):
-            return cls._to_fallback_yaml_seq(
-                obj, indent_level, indent_spaces, sort_keys
-            )
-
-        if obj is None:
-            return "null"
-        if isinstance(obj, bool):
-            return "true" if obj else "false"
-        if isinstance(obj, str):
-            return json.dumps(obj)
-        return str(obj)
-
-    @classmethod
-    def _to_fallback_yaml_dict(
-        cls,
-        obj: dict[Any, Any],
-        indent_level: int,
-        indent_spaces: int,
-        sort_keys: bool,
-    ) -> str:
-        if not obj:
-            return "{}"
-        spacing = " " * (indent_level * indent_spaces)
-        lines = []
-        keys = sorted(obj.keys()) if sort_keys else list(obj.keys())
-        for key in keys:
-            val = obj[key]
-            string_key = str(key)
-            formatted_key = (
-                json.dumps(key)
+            mro = val_class.__mro__
+            if not any(mro_cls.__name__ == "InfoMixin" for mro_cls in mro):
+                return str(val)
+            for cls_item in mro:
                 if (
-                    not string_key
-                    or any(char in string_key for char in ":{}[],&*#?|-<>=!%@` ")
-                )
-                else string_key
-            )
-            is_non_empty = (isinstance(val, dict) and len(val) > 0) or (
-                isinstance(val, list | tuple | set) and len(val) > 0
-            )
-            if is_non_empty:
-                val_str = cls._to_fallback_yaml(
-                    val, indent_level + 1, indent_spaces, sort_keys
-                )
-                lines.append(f"{spacing}{formatted_key}:\n{val_str}")
-            else:
-                val_str = cls._to_fallback_yaml(val, 0, indent_spaces, sort_keys)
-                lines.append(f"{spacing}{formatted_key}: {val_str}")
-        return "\n".join(lines)
+                    cls_item.__name__
+                    not in (
+                        "InfoMixin",
+                        "object",
+                        "BaseModel",
+                        "ReloadableBaseModel",
+                    )
+                    and "__str__" in cls_item.__dict__
+                ):
+                    return str(val)
+            return fallback
+        except Exception:  # noqa: BLE001
+            return fallback
 
-    @classmethod
-    def _to_fallback_yaml_seq(
-        cls,
-        obj: list[Any] | tuple[Any, ...] | set[Any],
-        indent_level: int,
-        indent_spaces: int,
-        sort_keys: bool,
-    ) -> str:
-        if not obj:
-            return "[]"
-        spacing = " " * (indent_level * indent_spaces)
-        lines = []
-        for item in obj:
-            is_non_empty = (isinstance(item, dict) and len(item) > 0) or (
-                isinstance(item, list | tuple | set) and len(item) > 0
-            )
-            if is_non_empty:
-                item_str = cls._to_fallback_yaml(
-                    item, indent_level + 1, indent_spaces, sort_keys
-                )
-                leading_spaces = (indent_level + 1) * indent_spaces
-                if item_str.startswith(" " * leading_spaces):
-                    item_str = item_str[leading_spaces:]
-                lines.append(f"{spacing}- {item_str}")
-            else:
-                val_str = cls._to_fallback_yaml(item, 0, indent_spaces, sort_keys)
-                lines.append(f"{spacing}- {val_str}")
-        return "\n".join(lines)
+
+def _is_default_info(attr: Any) -> bool:
+    """Check if the class attribute is the default InfoMixin.info property."""
+    if isinstance(attr, property) and attr.fget is not None:
+        return getattr(attr.fget, "__qualname__", None) == "InfoMixin.info"
+    return False

@@ -42,7 +42,7 @@ from disdantic.registry import (
     RegistryMixin,
 )
 from disdantic.schema import get_registry_schema
-from disdantic.settings import Settings, reset_settings
+from disdantic.settings import Settings, get_settings, reset_settings
 from disdantic.version import __version__
 
 __all__ = ["main"]
@@ -118,14 +118,16 @@ def diagnose(
 
     and verifies their integrity and compilation health.
     """
+    settings = None
     if path:
         reset_settings()
         with disdantic.settings._settings_lock:  # noqa: SLF001
-            disdantic.settings._global_settings = Settings(  # noqa: SLF001
-                project_root=Path(path)
-            )
+            settings = Settings(project_root=Path(path))
+            disdantic.settings._global_settings = settings  # noqa: SLF001
+    else:
+        settings = get_settings()
 
-    report = verify_registries()
+    report = verify_registries(settings=settings)
 
     if json_output:
         typer.echo(report.model_dump_json(indent=2))
@@ -280,8 +282,13 @@ def list_cmd(
     def _get_subclasses(registry_class: type) -> set[type]:
         subs = set()
         for sub in registry_class.__subclasses__():
-            subs.add(sub)
-            subs.update(_get_subclasses(sub))
+            if (
+                hasattr(sub, "__module__")
+                and isinstance(sub.__module__, str)
+                and sub.__module__ in sys.modules
+            ):
+                subs.add(sub)
+                subs.update(_get_subclasses(sub))
         return subs
 
     all_subs = _get_subclasses(RegistryMixin)

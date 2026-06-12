@@ -14,15 +14,20 @@
 
 from __future__ import annotations
 
+import builtins
+import importlib
 import inspect
 import json
+import sys
 import threading
+import unittest.mock
 from collections.abc import Generator
 from typing import Any, ClassVar, Literal
 
 import pytest
 from pydantic import Field, ValidationError
 
+import disdantic.compat
 import disdantic.introspection
 from disdantic.introspection import PRIMITIVE_TYPES, InfoMixin
 from disdantic.loading import LazyProxy
@@ -205,7 +210,7 @@ class TestInfoMixin:
 
             revalidated = valid_instances.__class__.model_validate(dumped_data)
             assert isinstance(revalidated, valid_instances.__class__)
-            for field_name in valid_instances.model_fields:
+            for field_name in valid_instances.__class__.model_fields:
                 assert getattr(revalidated, field_name) == getattr(
                     valid_instances, field_name
                 )
@@ -304,7 +309,7 @@ class TestInfoMixin:
 
         # 2. Introspect an object containing the lazy proxy
         wrapper_dict = {"lazy_field": lazy_proxy}
-        extracted = InfoMixin._sanitize_value(wrapper_dict)
+        extracted = InfoMixin._sanitize(wrapper_dict, set())
 
         # Assert introspection triggered proxy resolution
         assert resolved_flag is True
@@ -392,10 +397,7 @@ class TestInfoMixin:
 
     @pytest.mark.regression
     def test_info_yaml_fallback(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Verify the pure-Python fallback YAML writer.
-
-        This runs when yaml (PyYAML) is unavailable.
-        """
+        """Verify that info_yaml raises ImportError when PyYAML is unavailable."""
         monkeypatch.setattr(disdantic.introspection, "yaml", None)
 
         class FallbackTestModel(InfoMixin):
@@ -411,19 +413,9 @@ class TestInfoMixin:
                 self.nested_list = [{"key_x": 10}, 20]
 
         model = FallbackTestModel()
-        yaml_str = model.info_yaml(indent=2, sort_keys=True)
-        assert isinstance(yaml_str, str)
-
-        assert "empty_dict: {}" in yaml_str
-        assert "empty_seq: []" in yaml_str
-        assert "none_val: null" in yaml_str
-        assert "bool_true: true" in yaml_str
-        assert "bool_false: false" in yaml_str
-        assert 'simple_str: "hello"' in yaml_str
-        assert 'special_str: "key: value"' in yaml_str
-        assert "nested_dict:" in yaml_str
-        assert "nested_list:" in yaml_str
-        assert yaml_str.endswith("\n")
+        with pytest.raises(ImportError) as exc_info:
+            model.info_yaml(indent=2, sort_keys=True)
+        assert "PyYAML is required for YAML serialization" in str(exc_info.value)
 
     @pytest.mark.regression
     def test_custom_info_hook(self) -> None:
@@ -505,21 +497,21 @@ class TestInfoMixin:
 
     @pytest.mark.regression
     def test_prepare_for_serialization_edges(self) -> None:
-        """Verify edge cases of prepare_for_serialization.
+        """Verify edge cases of recursive sanitization.
 
         This includes circular lists/dicts and custom objects.
         """
         # 1. Circular dict
         circular_dict: dict[str, Any] = {}
         circular_dict["self"] = circular_dict
-        serialized_dict = InfoMixin._prepare_for_serialization(circular_dict)
+        serialized_dict = InfoMixin._sanitize(circular_dict, set())
         assert isinstance(serialized_dict, dict)
         assert "CircularReference" in serialized_dict["self"]
 
         # 2. Circular list
         circular_list: list[Any] = []
         circular_list.append(circular_list)
-        serialized_list = InfoMixin._prepare_for_serialization(circular_list)
+        serialized_list = InfoMixin._sanitize(circular_list, set())
         assert isinstance(serialized_list, list)
         assert "CircularReference" in serialized_list[0]
 
@@ -528,5 +520,30 @@ class TestInfoMixin:
             def __str__(self) -> str:
                 return "dummy_repr"
 
-        serialized_dummy = InfoMixin._prepare_for_serialization(DummyObject())
+        serialized_dummy = InfoMixin._sanitize(DummyObject(), set())
         assert serialized_dummy == "dummy_repr"
+
+    @pytest.mark.regression
+    def test_import_yaml_missing(self) -> None:
+        """Verify handling when PyYAML is not installed at import time."""
+        original_import = builtins.__import__
+
+        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "yaml":
+                raise ModuleNotFoundError("Mocked YAML missing")
+            return original_import(name, *args, **kwargs)
+
+        yaml_module = sys.modules.pop("yaml", None)
+        try:
+            with unittest.mock.patch("builtins.__import__", side_effect=mock_import):
+                # Reload the introspection module to trigger the try-except import logic
+                importlib.reload(disdantic.compat)
+                importlib.reload(disdantic.introspection)
+                assert disdantic.introspection.yaml is None
+        finally:
+            # Restore the module to its original state
+            # by reloading again without the mock
+            if yaml_module is not None:
+                sys.modules["yaml"] = yaml_module
+            importlib.reload(disdantic.compat)
+            importlib.reload(disdantic.introspection)

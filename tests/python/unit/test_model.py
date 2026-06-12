@@ -24,6 +24,7 @@ import pytest
 from pydantic import BaseModel, ValidationError
 from pytest_mock import MockerFixture
 
+import disdantic.model
 from disdantic.model import ReloadableBaseModel
 from disdantic.settings import get_settings, reset_settings
 
@@ -121,6 +122,31 @@ class PlainBase:
 
 class PythonGeneric(PlainBase, Generic[TypeVarT]):
     """A standard generic Python class inheriting from PlainBase."""
+
+
+class CyclicTarget(ReloadableBaseModel):
+    """Target model for cyclic dependency test."""
+
+    name: str
+
+
+class CyclicModelB(ReloadableBaseModel):
+    """Model B that references CyclicTarget and CyclicModelC."""
+
+    target: CyclicTarget
+    sibling: CyclicModelC
+
+
+class CyclicModelC(ReloadableBaseModel):
+    """Model C that references CyclicModelB."""
+
+    sibling: CyclicModelB
+
+
+class NestedGenericModel(ReloadableBaseModel):
+    """A model with deeply nested generics referencing TargetModel."""
+
+    target_nested: list[dict[str, TargetModel]]
 
 
 class TestReloadableBaseModel:
@@ -286,10 +312,9 @@ class TestReloadableBaseModel:
 
         LeafModel.reload_schema(parents=True)
 
-        # Since MidModel schema changes on the first rebuild, changed is True,
-        # triggering a second iteration where both models are rebuilt again.
-        assert mid_mock.call_count == 2
-        assert root_mock.call_count == 2
+        # With topological sorting, each model is rebuilt exactly once.
+        assert mid_mock.call_count == 1
+        assert root_mock.call_count == 1
 
     @pytest.mark.sanity
     def test_reload_parent_schemas_uses_type_string(
@@ -346,8 +371,10 @@ class TestReloadableBaseModel:
         a subclass of target.
         """
         # Direct check to ensure coverage of origin type checks
-        assert ReloadableBaseModel._uses_type(BaseChildModel, GenericSubclassModel[int])
-        assert ReloadableBaseModel._uses_type(PlainBase, PythonGeneric[int])
+        assert ReloadableBaseModel._references_type(
+            BaseChildModel, GenericSubclassModel[int]
+        )
+        assert ReloadableBaseModel._references_type(PlainBase, PythonGeneric[int])
 
         rebuild_mock = mocker.patch.object(
             GenericSubclassAnnotationModel,
@@ -408,5 +435,64 @@ class TestReloadableBaseModel:
 
         TargetModel.reload_schema(parents=True)
 
-        # Exception fallback sets changed=True, causing a second iteration.
-        assert rebuild_mock.call_count == 2
+        # With topological sorting, each model is rebuilt exactly once.
+        assert rebuild_mock.call_count == 1
+
+    @pytest.mark.sanity
+    def test_reload_parent_schemas(self, mocker: MockerFixture) -> None:
+        """Verify reload_parent_schemas identifies subclasses and delegates.
+
+        Delegates to _rebuild_dependents.
+        """
+
+        class TemporaryReloadable(ReloadableBaseModel):
+            pass
+
+        rebuild_dependents_mock = mocker.patch.object(
+            TemporaryReloadable,
+            "_rebuild_dependents",
+        )
+
+        TemporaryReloadable.reload_parent_schemas()
+
+        rebuild_dependents_mock.assert_called()
+
+    @pytest.mark.regression
+    def test_reload_parent_schemas_cyclic_dependency(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Verify cyclic dependencies invoke the topological sort fallback."""
+        # Resolve forward references first
+        CyclicModelB.model_rebuild()
+        CyclicModelC.model_rebuild()
+
+        rebuild_b_mock = mocker.patch.object(
+            CyclicModelB, "model_rebuild", wraps=CyclicModelB.model_rebuild
+        )
+        rebuild_c_mock = mocker.patch.object(
+            CyclicModelC, "model_rebuild", wraps=CyclicModelC.model_rebuild
+        )
+
+        CyclicTarget.reload_schema(parents=True)
+
+        rebuild_b_mock.assert_called_once_with(force=True)
+        rebuild_c_mock.assert_called_once_with(force=True)
+
+    @pytest.mark.regression
+    def test_reload_parent_schemas_nested_generic(self, mocker: MockerFixture) -> None:
+        """Verify rebuild cascades through deeply nested generics."""
+        rebuild_mock = mocker.patch.object(
+            NestedGenericModel,
+            "model_rebuild",
+            wraps=NestedGenericModel.model_rebuild,
+        )
+
+        TargetModel.reload_schema(parents=True)
+
+        rebuild_mock.assert_called_once_with(force=True)
+
+
+@pytest.mark.sanity
+def test_all_variable() -> None:
+    """Verify that __all__ contains the expected public exports."""
+    assert disdantic.model.__all__ == ["ReloadableBaseModel"]

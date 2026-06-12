@@ -14,15 +14,20 @@
 
 from __future__ import annotations
 
+import builtins
 import importlib
 import inspect
 import json
+import sys
+import warnings
 from typing import Any
 from unittest.mock import patch
 
 import pytest
 import yaml
+from pydantic import BaseModel
 
+import disdantic.compat
 import disdantic.introspection
 from disdantic.introspection import PRIMITIVE_TYPES, InfoMixin
 from disdantic.loading import LazyProxy
@@ -160,60 +165,72 @@ class TestInfoMixin:
     @pytest.mark.smoke
     def test_signature(self) -> None:
         """Verify structural contracts and exact signatures of InfoMixin."""
-        # Inheritance check
+        # Setup
+        # Mock
+        # Invoke & Assert
         assert issubclass(SimpleModel, InfoMixin)
-
-        # Public properties and methods presence
         assert hasattr(InfoMixin, "extract_from_obj")
         assert hasattr(InfoMixin, "info")
-
-        # Property checks
         assert isinstance(InfoMixin.info, property)
 
-        # Method signature check
         extract_sig = inspect.signature(InfoMixin.extract_from_obj)
         assert "obj" in extract_sig.parameters
         assert "visited" in extract_sig.parameters
+        # Teardown
 
     @pytest.mark.sanity
     def test_initialization(self, valid_instances: SimpleModel) -> None:
         """Verify correct initialization and state mapping from the fixture."""
+        # Setup
+        # Mock
+        # Invoke & Assert
         assert valid_instances.name in {"Alice", "Bob"}
         assert valid_instances.age in {25, 30}
         assert valid_instances._private_val == "secret"
+        # Teardown
 
     @pytest.mark.sanity
     def test_invalid_initialization_values(self) -> None:
         """Verify direct instantiation failure when parameters are provided."""
+        # Setup
+        # Mock
+        # Invoke & Assert
         with pytest.raises(TypeError):
             InfoMixin(dummy_param="value")  # type: ignore[call-arg]  # ty: ignore[unknown-argument]
+        # Teardown
 
     @pytest.mark.sanity
     def test_invalid_initialization_missing(self) -> None:
         """Verify instantiation succeeds with no params and fails with missing."""
+        # Setup
+        # Mock
+        # Invoke
         instance = InfoMixin()
-        assert isinstance(instance, InfoMixin)
 
+        # Assert
+        assert isinstance(instance, InfoMixin)
         with pytest.raises(TypeError):
             SimpleModel(name="OnlyName")  # type: ignore[call-arg]  # ty: ignore[missing-argument]
+        # Teardown
 
     @pytest.mark.smoke
     def test_info(self, valid_instances: SimpleModel) -> None:
         """Verify the info property extracts dynamic self-introspection data."""
-        # Setup (valid_instances fixture is the setup)
-        # Mock (not needed for local properties)
+        # Setup
+        # Mock
         # Invoke
         info_data = valid_instances.info
 
-        # Assert / Teardown
+        # Assert
         assert isinstance(info_data, dict)
-        assert info_data["str"] == str(valid_instances)
+        assert info_data["str"].startswith("<SimpleModel object at")
         assert info_data["type"] == "SimpleModel"
         assert info_data["module"] == "tests.python.unit.test_introspection"
         assert info_data["attributes"] == {
             "name": valid_instances.name,
             "age": valid_instances.age,
         }
+        # Teardown
 
     @pytest.mark.smoke
     def test_extract_from_obj(self) -> None:
@@ -221,24 +238,27 @@ class TestInfoMixin:
         # Setup
         model = SimpleModel("Charlie", 40)
 
+        # Mock
         # Invoke
         info_data = InfoMixin.extract_from_obj(model)
 
         # Assert
-        assert info_data["str"] == str(model)
+        assert info_data["str"].startswith("<SimpleModel object at")
         assert info_data["type"] == "SimpleModel"
         assert info_data["module"] == "tests.python.unit.test_introspection"
         assert info_data["attributes"] == {
             "name": "Charlie",
             "age": 40,
         }
+        # Teardown
 
     @pytest.mark.sanity
     def test_extract_from_obj_invalid(self) -> None:
         """Verify fallback behavior when object parsing encounters exceptions."""
-        # Setup: object with a property that raises Exception
+        # Setup
         model = ModelWithExtractionError()
 
+        # Mock
         # Invoke
         info_data = InfoMixin.extract_from_obj(model)
 
@@ -246,6 +266,7 @@ class TestInfoMixin:
         error_msg = info_data["attributes"]["broken"]
         assert error_msg.startswith("<Extraction Error:")
         assert "ValueError" in error_msg
+        # Teardown
 
     @pytest.mark.sanity
     def test_extract_from_obj_containers(self) -> None:
@@ -253,6 +274,7 @@ class TestInfoMixin:
         # Setup
         model = ModelWithContainers()
 
+        # Mock
         # Invoke
         info_data = InfoMixin.extract_from_obj(model)
 
@@ -265,29 +287,30 @@ class TestInfoMixin:
             "name": "nested",
             "age": 30,
         }
+        # Teardown
 
     @pytest.mark.sanity
     def test_extract_from_obj_custom_info(self) -> None:
         """Verify customized .info properties or callable methods are preferred."""
-        # Custom property info
+        # Setup
         model_custom = ModelWithCustomInfo()
-        info_custom = InfoMixin.extract_from_obj(model_custom)
-        assert info_custom == {"custom": True, "value_attr": "value"}
-
-        # Custom callable info
         model_callable = ModelWithCustomCallableInfo()
-        info_callable = InfoMixin.extract_from_obj(model_callable)
-        assert info_callable == {"callable_custom": True}
-
-        # Custom callable info raising exception (falls back to normal extraction)
         model_raising = ModelWithCustomCallableInfoRaising()
+        model_nested = ModelWithCustomNested()
+
+        # Mock
+        # Invoke
+        info_custom = InfoMixin.extract_from_obj(model_custom)
+        info_callable = InfoMixin.extract_from_obj(model_callable)
         info_raising = InfoMixin.extract_from_obj(model_raising)
+        info_nested = InfoMixin.extract_from_obj(model_nested)
+
+        # Assert
+        assert info_custom == {"custom": True, "value_attr": "value"}
+        assert info_callable == {"callable_custom": True}
         assert "attributes" in info_raising
         assert info_raising["type"] == "ModelWithCustomCallableInfoRaising"
 
-        # Nested custom objects (covers _sanitize_value traversal)
-        model_nested = ModelWithCustomNested()
-        info_nested = InfoMixin.extract_from_obj(model_nested)
         attributes = info_nested["attributes"]
         assert attributes["custom_callable"] == {"callable_custom": True}
         assert attributes["custom_property"] == {
@@ -298,9 +321,8 @@ class TestInfoMixin:
             "ModelWithCustomCallableInfoRaising object" in attributes["custom_raising"]
         )
 
-        # Implicitly cover _sanitize_value default visited parameter
-        # to ensure 100% module coverage.
-        assert InfoMixin._sanitize_value("fallback_val") == "fallback_val"
+        assert InfoMixin._sanitize("fallback_val", set()) == "fallback_val"
+        # Teardown
 
     @pytest.mark.sanity
     def test_extract_from_obj_exclude_keys(self) -> None:
@@ -310,6 +332,7 @@ class TestInfoMixin:
         get_settings().info_exclude_keys = ["info", "age"]
         model = SimpleModel("Alice", 25)
 
+        # Mock
         try:
             # Invoke
             info_data = InfoMixin.extract_from_obj(model)
@@ -324,129 +347,130 @@ class TestInfoMixin:
     @pytest.mark.regression
     def test_extract_from_obj_circular_references(self) -> None:
         """Verify circular reference detection resolves to a sentinel representation."""
-        # Scenario 1: Circular reference in list elements
+        # Setup
         model_circular_list = ModelWithCircularContainers()
+        model_self_ref = ModelWithSelfReference()
+        model_self_ref.myself = model_self_ref
+
+        model_first = ModelWithCrossReference("ModelA")
+        model_second = ModelWithCrossReference("ModelB")
+        model_first.other = model_second
+        model_second.other = model_first
+
+        # Mock
+        # Invoke
         info_circular_list = InfoMixin.extract_from_obj(model_circular_list)
+        info_self_ref = InfoMixin.extract_from_obj(model_self_ref)
+        info_cross_ref = InfoMixin.extract_from_obj(model_first)
+
+        # Assert
         elements = info_circular_list["attributes"]["elements"]
         assert len(elements) == 3
         assert elements[0] == 1
         assert elements[1] == 2
         assert elements[2].startswith("<CircularReference:")
 
-        # Scenario 2: Circular reference to self
-        model_self_ref = ModelWithSelfReference()
-        model_self_ref.myself = model_self_ref
-        info_self_ref = InfoMixin.extract_from_obj(model_self_ref)
         myself_val = info_self_ref["attributes"]["myself"]
         assert myself_val.startswith("<CircularReference:")
 
-        # Scenario 3: Circular cross-reference across two objects
-        model_a = ModelWithCrossReference("ModelA")
-        model_b = ModelWithCrossReference("ModelB")
-        model_a.other = model_b
-        model_b.other = model_a
-
-        info_cross_ref = InfoMixin.extract_from_obj(model_a)
         other_attributes = info_cross_ref["attributes"]["other"]["attributes"]
         assert other_attributes["name"] == "ModelB"
         circular_ref = other_attributes["other"]
         assert circular_ref.startswith("<CircularReference:")
+        # Teardown
 
     @pytest.mark.sanity
     def test_extract_from_obj_lazy_proxy(self) -> None:
         """Verify resolving of LazyProxy attributes in the serialization pipeline."""
+        # Setup
         model = ModelWithLazyProxy("resolved_secret")
+
+        # Mock
+        # Invoke
         info_data = InfoMixin.extract_from_obj(model)
+
+        # Assert
         assert info_data["attributes"]["lazy_val"] == "resolved_secret"
+        # Teardown
 
     @pytest.mark.sanity
     def test_extract_from_obj_type_value(self) -> None:
         """Verify type objects are sanitized directly to their repr."""
+        # Setup
         model = ModelWithTypeValue()
+
+        # Mock
+        # Invoke
         info_data = InfoMixin.extract_from_obj(model)
+
+        # Assert
         assert info_data["attributes"]["type_val"] == [repr(int)]
+        # Teardown
 
     @pytest.mark.sanity
     def test_extract_from_obj_custom_no_info(self) -> None:
         """Verify custom objects without an info attribute resolve to repr."""
+        # Setup
         model = ModelWithCustomNoInfo()
+
+        # Mock
+        # Invoke
         info_data = InfoMixin.extract_from_obj(model)
+
+        # Assert
         assert info_data["attributes"]["dummy"] == "<CustomDummyWithoutInfo>"
+        # Teardown
 
     @pytest.mark.sanity
     def test_info_json(self) -> None:
         """Verify basic JSON serialization and its options."""
+        # Setup
         model = SimpleModel("Alice", 25)
+        model_circular = ModelWithCircularContainers()
 
-        # Basic serialization
+        # Mock
+        # Invoke
         json_str = model.info_json()
         data = json.loads(json_str)
+
+        json_indent = model.info_json(indent=4)
+        json_sorted = model.info_json(sort_keys=True)
+        json_kwargs = model.info_json(separators=(",", ":"))
+        json_circular_str = model_circular.info_json()
+        data_circular = json.loads(json_circular_str)
+
+        # Assert
         assert data["type"] == "SimpleModel"
         assert data["attributes"] == {"name": "Alice", "age": 25}
-
-        # Indent option
-        json_indent = model.info_json(indent=4)
         assert "\n    " in json_indent
-
-        # Sort keys option
-        json_sorted = model.info_json(sort_keys=True)
         assert '"age": 25' in json_sorted
         assert '"name": "Alice"' in json_sorted
-
-        # Additional kwargs
-        json_kwargs = model.info_json(separators=(",", ":"))
         assert ":" in json_kwargs
         assert ", " not in json_kwargs
 
-        # Circular reference in JSON serialization
-        model_circular = ModelWithCircularContainers()
-        json_circular_str = model_circular.info_json()
-        data_circular = json.loads(json_circular_str)
         elements = data_circular["attributes"]["elements"]
         assert len(elements) == 3
         assert elements[2].startswith("<CircularReference:")
+        # Teardown
 
     @pytest.mark.sanity
     def test_info_json_invalid(self) -> None:
         """Verify invalid arguments to info_json raise TypeError."""
+        # Setup
         model = SimpleModel("Alice", 25)
-        # Passing an un-serializable object as an extra argument
+
+        # Mock
+        # Invoke & Assert
         with pytest.raises(TypeError):
             model.info_json(cls=object)
+        # Teardown
 
     @pytest.mark.sanity
     def test_info_yaml(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verify YAML serialization using PyYAML and fallback modes."""
+        # Setup
         model = SimpleModel("Bob", 30)
 
-        # Standard YAML
-        yaml_str = model.info_yaml()
-        data = yaml.safe_load(yaml_str)
-        assert data["type"] == "SimpleModel"
-        assert data["attributes"] == {"name": "Bob", "age": 30}
-
-        # Sort keys options
-        yaml_sorted = model.info_yaml(sort_keys=True)
-        assert "age: 30" in yaml_sorted
-
-        # Kwargs options
-        yaml_flow = model.info_yaml(default_flow_style=True)
-        assert "type: SimpleModel" in yaml_flow or (
-            "{type: SimpleModel" in yaml_flow.replace(" ", "")
-        )
-
-        # Fallback YAML mode when PyYAML is unavailable
-        monkeypatch.setattr(disdantic.introspection, "yaml", None)
-        yaml_fallback_str = model.info_yaml(indent=2, sort_keys=True)
-        assert 'type: "SimpleModel"' in yaml_fallback_str
-        assert 'name: "Charlie"' not in yaml_fallback_str
-        assert "age: 30" in yaml_fallback_str
-
-        fallback_data = yaml.safe_load(yaml_fallback_str)
-        assert fallback_data["type"] == "SimpleModel"
-        assert fallback_data["attributes"] == {"name": "Bob", "age": 30}
-
-        # Fallback YAML complex nested/empty structures
         class ComplexObj(InfoMixin):
             def __init__(self) -> None:
                 self.str_val = "hello"
@@ -454,67 +478,251 @@ class TestInfoMixin:
                 self.none_val = None
                 self.empty_dict: dict[str, Any] = {}
                 self.empty_list: list[Any] = []
-                self.nested_list = [1, [2], {"a": []}]
+                self.nested_list = [1, [2], {"key_a": []}]
 
         obj = ComplexObj()
-        yaml_complex_str = obj.info_yaml(sort_keys=True)
-        complex_data = yaml.safe_load(yaml_complex_str)
-        assert complex_data["type"] == "ComplexObj"
-        assert complex_data["attributes"]["str_val"] == "hello"
-        assert complex_data["attributes"]["bool_val"] is True
-        assert complex_data["attributes"]["none_val"] is None
-        assert complex_data["attributes"]["empty_dict"] == {}
-        assert complex_data["attributes"]["empty_list"] == []
-        assert complex_data["attributes"]["nested_list"] == [1, [2], {"a": []}]
+
+        # Mock
+        # Invoke
+        yaml_str = model.info_yaml()
+        data = yaml.safe_load(yaml_str)
+
+        yaml_sorted = model.info_yaml(sort_keys=True)
+        yaml_flow = model.info_yaml(default_flow_style=True)
+
+        monkeypatch.setattr(disdantic.introspection, "yaml", None)
+        with pytest.raises(ImportError) as exc_info:
+            model.info_yaml(indent=2, sort_keys=True)
+        assert "PyYAML is required for YAML serialization" in str(exc_info.value)
+
+        with pytest.raises(ImportError) as exc_info:
+            obj.info_yaml(sort_keys=True)
+        assert "PyYAML is required for YAML serialization" in str(exc_info.value)
+
+        # Assert
+        assert data["type"] == "SimpleModel"
+        assert data["attributes"] == {"name": "Bob", "age": 30}
+        assert "age: 30" in yaml_sorted
+        assert "type: SimpleModel" in yaml_flow or (
+            "{type: SimpleModel" in yaml_flow.replace(" ", "")
+        )
+        # Teardown
 
     @pytest.mark.sanity
     def test_info_yaml_invalid(self) -> None:
         """Verify invalid arguments to info_yaml raise exceptions."""
+        # Setup
         model = SimpleModel("Bob", 30)
-        # Passing invalid arguments to PyYAML dump
+
+        # Mock
+        # Invoke & Assert
         with pytest.raises((TypeError, ValueError)):
             model.info_yaml(invalid_argument_for_yaml=True)
+        # Teardown
 
     @pytest.mark.regression
-    def test_prepare_for_serialization_circular(self) -> None:
-        """Verify _prepare_for_serialization detects circular references."""
-        circular_list: list[Any] = []
-        circular_list.append(circular_list)
-        res_list = InfoMixin._prepare_for_serialization(circular_list)
-        assert isinstance(res_list, list)
-        assert len(res_list) == 1
-        assert res_list[0].startswith("<CircularReference:")
+    def test_info_json_circular_implicit(self) -> None:
+        """Verify circular reference lists/dicts are serialized implicitly
+        through public json pathway.
+        """
 
-        circular_dict: dict[str, Any] = {}
-        circular_dict["self"] = circular_dict
-        res_dict = InfoMixin._prepare_for_serialization(circular_dict)
-        assert isinstance(res_dict, dict)
-        assert res_dict["self"].startswith("<CircularReference:")
+        # Setup
+        class ModelWithCustomCircular(InfoMixin):
+            @property
+            def info(self) -> dict[str, Any]:
+                circular_list: list[Any] = []
+                circular_list.append(circular_list)
+                circular_dict: dict[str, Any] = {}
+                circular_dict["self"] = circular_dict
+                return {"list": circular_list, "dict": circular_dict}
+
+        model_circular = ModelWithCustomCircular()
+
+        # Mock
+        # Invoke
+        json_circular_str = model_circular.info_json()
+        data_circular = json.loads(json_circular_str)
+
+        # Assert
+        list_val = data_circular["list"]
+        assert len(list_val) == 1
+        assert list_val[0].startswith("<CircularReference:")
+
+        dict_val = data_circular["dict"]
+        assert dict_val["self"].startswith("<CircularReference:")
+        # Teardown
 
     @pytest.mark.regression
-    def test_prepare_for_serialization_fallback(self) -> None:
-        """Verify _prepare_for_serialization fallback representation."""
-        dummy_obj = object()
-        res = InfoMixin._prepare_for_serialization(dummy_obj)
-        assert res == str(dummy_obj)
+    def test_info_json_fallback_implicit(self) -> None:
+        """Verify fallback representation of custom objects is serialized
+        to string representation implicitly.
+        """
+
+        # Setup
+        class ModelWithCustomRawInfo(InfoMixin):
+            @property
+            def info(self) -> dict[str, Any]:
+                return {"raw_object": object()}
+
+        model_raw = ModelWithCustomRawInfo()
+
+        # Mock
+        # Invoke
+        json_str = model_raw.info_json()
+        data = json.loads(json_str)
+
+        # Assert
+        raw_val = data["raw_object"]
+        assert raw_val.startswith("<object object at ")
+        # Teardown
 
     @pytest.mark.regression
     def test_yaml_import_error(self) -> None:
         """Verify module handles yaml module load ImportError."""
+        original_import = builtins.__import__
+
+        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "yaml":
+                raise ImportError("Mocked yaml import error")
+            return original_import(name, *args, **kwargs)
+
+        # Mock & Invoke
+        yaml_module = sys.modules.pop("yaml", None)
         try:
-            with patch(
-                "disdantic.loading.LazyLoader.load_module_proxy",
-                side_effect=ImportError,
-            ):
+            with patch("builtins.__import__", side_effect=mock_import):
+                importlib.reload(disdantic.compat)
                 importlib.reload(disdantic.introspection)
+
+                # Assert
                 assert disdantic.introspection.yaml is None
         finally:
+            # Teardown
+            if yaml_module is not None:
+                sys.modules["yaml"] = yaml_module
+            importlib.reload(disdantic.compat)
             importlib.reload(disdantic.introspection)
+
+    @pytest.mark.regression
+    def test_info_pydantic_no_deprecation_warnings(self) -> None:
+        """Verify Pydantic models introspect without deprecation warnings.
+
+        Also check for metadata leakage.
+        """
+
+        # Setup
+        class DummyPydanticModel(BaseModel, disdantic.introspection.InfoMixin):
+            name: str
+            val: int
+
+        model = DummyPydanticModel(name="test_pydantic", val=42)
+
+        # Mock & Invoke
+        with warnings.catch_warnings(record=True) as caught_warnings:
+            warnings.simplefilter("always")
+            info_data = model.info
+
+        # Assert
+        # 1. No deprecation warnings should be emitted
+        deprecation_warnings = [
+            w
+            for w in caught_warnings
+            if issubclass(w.category, DeprecationWarning)
+            or "deprecation" in str(w.message).lower()
+        ]
+        assert len(deprecation_warnings) == 0, (
+            f"Deprecation warnings occurred: {deprecation_warnings}"
+        )
+
+        # 2. Pydantic metadata keys must be omitted
+        attributes = info_data["attributes"]
+        assert attributes == {"name": "test_pydantic", "val": 42}
+
+    @pytest.mark.regression
+    def test_class_variable_filtering(self) -> None:
+        """Verify that class variables/constants are excluded from introspection."""
+
+        # Setup
+        class ModelWithClassVar(InfoMixin):
+            CLASS_CONST = 100
+            _private_class_const = 200
+
+            def __init__(self, name: str):
+                self.name = name
+
+            @property
+            def computed_prop(self) -> str:
+                return "prop_val"
+
+        model = ModelWithClassVar(name="instance_val")
+
+        # Invoke
+        info_data = model.info
+
+        # Assert
+        # 1. Instance variable and property should be included
+        assert info_data["attributes"]["name"] == "instance_val"
+        assert info_data["attributes"]["computed_prop"] == "prop_val"
+
+        # 2. Class constants and variables should be skipped
+        assert "CLASS_CONST" not in info_data["attributes"]
+        assert "_private_class_const" not in info_data["attributes"]
+
+    @pytest.mark.regression
+    def test_repr_str_overrides(self) -> None:
+        """Verify that __repr__ and __str__ delegate to overrides or fallback."""
+
+        # Setup
+        # Case A: Plain InfoMixin subclass (no other parent implements custom repr/str)
+        class PlainInfoModel(InfoMixin):
+            def __init__(self) -> None:
+                self.val = 42
+
+        # Case B: Subclass overrides __repr__ or __str__
+        class CustomReprModel(InfoMixin):
+            def __init__(self) -> None:
+                self.val = 100
+
+            def __repr__(self) -> str:
+                return "custom_repr"
+
+            def __str__(self) -> str:
+                return "custom_str"
+
+        # Case C: Multiple inheritance with another parent that overrides repr/str
+        class ParentWithCustomRepr:
+            def __repr__(self) -> str:
+                return "parent_repr"
+
+            def __str__(self) -> str:
+                return "parent_str"
+
+        class InheritedReprModel(InfoMixin, ParentWithCustomRepr):
+            pass
+
+        # Invoke & Assert
+        model_a = PlainInfoModel()
+        model_b = CustomReprModel()
+        model_c = InheritedReprModel()
+
+        # Plain model uses the info fallback representation
+        assert repr(model_a) == f"<PlainInfoModel info={model_a.info}>"
+        assert str(model_a) == f"<PlainInfoModel info={model_a.info}>"
+
+        # Custom repr/str overrides are respected
+        assert repr(model_b) == "custom_repr"
+        assert str(model_b) == "custom_str"
+
+        # MRO inheritance is respected
+        assert repr(model_c) == "parent_repr"
+        assert str(model_c) == "parent_str"
 
 
 @pytest.mark.smoke
 def test_primitive_types() -> None:
     """Verify PRIMITIVE_TYPES constant contents and type-matching compatibility."""
+    # Setup
+    # Mock
+    # Invoke & Assert
     assert isinstance(PRIMITIVE_TYPES, tuple)
     assert len(PRIMITIVE_TYPES) == 5
     assert str in PRIMITIVE_TYPES
@@ -522,3 +730,4 @@ def test_primitive_types() -> None:
     assert float in PRIMITIVE_TYPES
     assert bool in PRIMITIVE_TYPES
     assert type(None) in PRIMITIVE_TYPES
+    # Teardown

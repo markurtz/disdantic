@@ -352,9 +352,31 @@ class TestVerifyRegistries:
         assert isinstance(report.import_errors, list)
 
     @pytest.mark.sanity
-    def test_invocation_healthy(self) -> None:
-        """Verify registry verification under normal, healthy setups."""
+    @pytest.mark.parametrize(
+        "scenario",
+        [
+            "healthy",
+            "orphans",
+            "non_pydantic_registry",
+            "auto_package_string",
+            "auto_package_list",
+            "auto_ignore_modules",
+            "package_no_path",
+            "walk_package_is_package",
+            "orphan_ignored_name",
+        ],
+    )
+    def test_invocation(
+        self,
+        scenario: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Verify registry verification under various healthy/happy configurations."""
+        helper_name = f"_run_scenario_{scenario}"
+        helper = getattr(self, helper_name)
+        helper(monkeypatch)
 
+    def _run_scenario_healthy(self, monkeypatch: pytest.MonkeyPatch) -> None:
         class HealthyBase(PydanticClassRegistryMixin):
             model_type: str
 
@@ -367,8 +389,6 @@ class TestVerifyRegistries:
 
         report = verify_registries()
         assert report.is_healthy is True
-
-        # Find our registry in the report
         reg_diagnostics = next(
             (
                 registry
@@ -385,14 +405,10 @@ class TestVerifyRegistries:
         assert reg_diagnostics.models[0].compilation_status == "healthy"
         assert len(reg_diagnostics.orphans) == 0
 
-    @pytest.mark.sanity
-    def test_invocation_orphans(self) -> None:
-        """Verify detection of unregistered subclasses (orphans)."""
-
+    def _run_scenario_orphans(self, monkeypatch: pytest.MonkeyPatch) -> None:
         class OrphanBase(PydanticClassRegistryMixin):
             model_type: str
 
-        # Create a subclass but do NOT register it
         class UnregisteredChild(OrphanBase):
             model_type: Literal["unregistered"] = "unregistered"
             url: str
@@ -401,7 +417,6 @@ class TestVerifyRegistries:
 
         report = verify_registries()
         assert report.is_healthy is True
-
         reg_diagnostics = next(
             (
                 registry
@@ -414,10 +429,360 @@ class TestVerifyRegistries:
         assert len(reg_diagnostics.orphans) == 1
         assert "UnregisteredChild" in reg_diagnostics.orphans[0]
 
-    @pytest.mark.regression
-    def test_invocation_compilation_error(self) -> None:
-        """Verify registry verification catches model compilation failures."""
+    def _run_scenario_non_pydantic_registry(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class SimpleRegistry(RegistryMixin[Any]):
+            pass
 
+        @SimpleRegistry.register("simple_class")
+        class SimpleChild:
+            pass
+
+        class NoModuleObject:
+            @property
+            def __module__(self) -> str:
+                raise AttributeError("No module attribute exists")
+
+        mock_obj = NoModuleObject()
+        SimpleRegistry.registry["simple_instance"] = SimpleChild()
+        SimpleRegistry.registry["no_module"] = mock_obj
+
+        _active_registries.update([SimpleRegistry, SimpleChild])
+
+        report = verify_registries()
+        assert report.is_healthy is True
+        reg_diagnostics = next(
+            (
+                registry
+                for registry in report.registries
+                if registry.registry_name == "SimpleRegistry"
+            ),
+            None,
+        )
+        assert reg_diagnostics is not None
+        assert reg_diagnostics.discriminator_key == "N/A"
+        assert len(reg_diagnostics.models) == 3
+        names_found = {model.class_name for model in reg_diagnostics.models}
+        assert "SimpleChild" in names_found
+        assert "NoModuleObject" in names_found
+        module_paths = {model.module_path for model in reg_diagnostics.models}
+        assert "" in module_paths
+
+    def _run_scenario_auto_package_string(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class StringPkgRegistry(RegistryMixin[Any]):
+            auto_package = "single_pkg"
+
+        _active_registries.add(StringPkgRegistry)
+        scanned: list[str] = []
+
+        def mock_scan(
+            packages: list[str],
+            ignore_set: set[str],
+            errors_list: list[str],
+        ) -> None:
+            scanned.extend(packages)
+
+        monkeypatch.setattr("disdantic.diagnose._scan_packages", mock_scan)
+
+        report = verify_registries()
+        assert "single_pkg" in scanned
+        assert report.is_healthy is True
+
+    def _run_scenario_auto_package_list(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        class ListPkgRegistry(RegistryMixin[Any]):
+            auto_package = ["pkg_one", "pkg_two"]
+
+        _active_registries.add(ListPkgRegistry)
+        scanned: list[str] = []
+
+        def mock_scan(
+            packages: list[str],
+            ignore_set: set[str],
+            errors_list: list[str],
+        ) -> None:
+            scanned.extend(packages)
+
+        monkeypatch.setattr("disdantic.diagnose._scan_packages", mock_scan)
+
+        report = verify_registries()
+        assert "pkg_one" in scanned
+        assert "pkg_two" in scanned
+        assert report.is_healthy is True
+
+    def _run_scenario_auto_ignore_modules(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        settings = get_settings()
+        settings.auto_ignore_modules = ["settings_ignored"]
+
+        class IgnoreRegistry(RegistryMixin[Any]):
+            auto_ignore_modules = ["registry_ignored"]
+
+        _active_registries.add(IgnoreRegistry)
+        ignored: set[str] = set()
+
+        def mock_scan(
+            packages: list[str],
+            ignore_set: set[str],
+            errors_list: list[str],
+        ) -> None:
+            ignored.update(ignore_set)
+
+        monkeypatch.setattr("disdantic.diagnose._scan_packages", mock_scan)
+
+        report = verify_registries()
+        assert "settings_ignored" in ignored
+        assert "registry_ignored" in ignored
+        assert report.is_healthy is True
+
+    def _run_scenario_package_no_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        settings = get_settings()
+        settings.auto_packages = ["no_path_pkg"]
+        mock_pkg = mock.Mock(spec=[])
+
+        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "no_path_pkg":
+                return mock_pkg
+            raise ImportError(f"Unexpected import request for {name}")
+
+        monkeypatch.setattr(importlib, "import_module", mock_import)
+
+        report = verify_registries()
+        assert report.is_healthy is True
+        assert len(report.import_errors) == 0
+
+    def _run_scenario_walk_package_is_package(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        settings = get_settings()
+        settings.auto_packages = ["valid_root_pkg"]
+        mock_pkg = mock.Mock()
+        mock_pkg.__path__ = ["/mock/path"]
+        mock_pkg.__name__ = "valid_root_pkg"
+
+        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "valid_root_pkg":
+                return mock_pkg
+            raise ImportError(f"Unexpected import request for {name}")
+
+        def mock_walk(
+            path: Any, prefix: str, onerror: Any = None
+        ) -> Generator[tuple[Any, str, bool], None, None]:
+            if onerror:
+                onerror("simulated walk error")
+            yield None, "valid_root_pkg.sub_pkg", True
+
+        monkeypatch.setattr(importlib, "import_module", mock_import)
+        monkeypatch.setattr(pkgutil, "walk_packages", mock_walk)
+
+        report = verify_registries()
+        assert report.is_healthy is True
+        assert len(report.import_errors) == 0
+
+    def _run_scenario_orphan_ignored_name(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class IgnoredNameBase(RegistryMixin[Any]):
+            pass
+
+        class IgnoredSubclass(IgnoredNameBase):
+            pass
+
+        IgnoredSubclass.__name__ = "RegistryMixin"
+
+        _active_registries.update([IgnoredNameBase, IgnoredSubclass])
+
+        report = verify_registries()
+        assert report.is_healthy is True
+        reg_diagnostics = next(
+            (
+                registry
+                for registry in report.registries
+                if registry.registry_name == "IgnoredNameBase"
+            ),
+            None,
+        )
+        assert reg_diagnostics is not None
+        assert len(reg_diagnostics.orphans) == 0
+
+    @pytest.mark.sanity
+    @pytest.mark.parametrize(
+        "scenario",
+        [
+            "import_root_error",
+            "walk_package_error",
+        ],
+    )
+    def test_sanity_invalid(
+        self,
+        scenario: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Verify sanity failure conditions for verify_registries."""
+        helper_name = f"_run_sanity_{scenario}"
+        helper = getattr(self, helper_name)
+        helper(monkeypatch)
+
+    def _run_sanity_import_root_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        settings = get_settings()
+        settings.auto_packages = ["broken_root_pkg"]
+
+        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "broken_root_pkg":
+                raise ImportError("Simulated package root import failure")
+            raise ImportError(f"Unexpected import request for {name}")
+
+        monkeypatch.setattr(importlib, "import_module", mock_import)
+
+        report = verify_registries()
+        assert report.is_healthy is False
+        assert any(
+            "Failed to import package root 'broken_root_pkg'" in err
+            for err in report.import_errors
+        )
+
+    def _run_sanity_walk_package_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        settings = get_settings()
+        settings.auto_packages = ["valid_root_pkg"]
+        mock_pkg = mock.Mock()
+        mock_pkg.__path__ = ["/mock/path"]
+        mock_pkg.__name__ = "valid_root_pkg"
+
+        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "valid_root_pkg":
+                return mock_pkg
+            raise ImportError(f"Unexpected import request for {name}")
+
+        def mock_walk(path: Any, prefix: str, onerror: Any = None) -> Any:
+            raise ValueError("Simulated walk packages error")
+
+        monkeypatch.setattr(importlib, "import_module", mock_import)
+        monkeypatch.setattr(pkgutil, "walk_packages", mock_walk)
+
+        report = verify_registries()
+        assert report.is_healthy is False
+        assert any(
+            ("Error walking package 'valid_root_pkg': Simulated walk packages error")
+            in err
+            for err in report.import_errors
+        )
+
+    @pytest.mark.regression
+    @pytest.mark.parametrize(
+        "scenario",
+        [
+            "import_submodule_error",
+            "auto_populate_error",
+            "base_type_rebuild_error",
+            "child_class_compilation_error",
+        ],
+    )
+    def test_regression_invalid(
+        self,
+        scenario: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Verify regression failure conditions for verify_registries."""
+        helper_name = f"_run_regression_{scenario}"
+        helper = getattr(self, helper_name)
+        helper(monkeypatch)
+
+    def _run_regression_import_submodule_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        settings = get_settings()
+        settings.auto_packages = ["valid_root_pkg"]
+        mock_pkg = mock.Mock()
+        mock_pkg.__path__ = ["/mock/path"]
+        mock_pkg.__name__ = "valid_root_pkg"
+
+        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "valid_root_pkg":
+                return mock_pkg
+            if name == "valid_root_pkg.broken_sub":
+                raise ImportError("Simulated submodule import failure")
+            raise ImportError(f"Unexpected import request for {name}")
+
+        def mock_walk(
+            path: Any, prefix: str, onerror: Any = None
+        ) -> Generator[tuple[Any, str, bool], None, None]:
+            yield None, "valid_root_pkg.broken_sub", False
+
+        monkeypatch.setattr(importlib, "import_module", mock_import)
+        monkeypatch.setattr(pkgutil, "walk_packages", mock_walk)
+
+        report = verify_registries()
+        assert report.is_healthy is False
+        assert any(
+            (
+                "Failed to import module 'valid_root_pkg.broken_sub': "
+                "Simulated submodule import failure"
+            )
+            in err
+            for err in report.import_errors
+        )
+
+    def _run_regression_auto_populate_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class BrokenPopRegistry(RegistryMixin[Any]):
+            auto_discovery_enabled = True
+            registry_populated = False
+            auto_package = "mock_pkg"
+
+            @classmethod
+            def is_auto_discovery_enabled(cls) -> bool:
+                return True
+
+            @classmethod
+            def auto_populate_registry(cls) -> bool:
+                raise ValueError("Simulated populate error")
+
+        _active_registries.add(BrokenPopRegistry)
+        settings = get_settings()
+        settings.auto_packages = []
+
+        def mock_scan(
+            packages: list[str],
+            ignore_set: set[str],
+            errors_list: list[str],
+        ) -> None:
+            pass
+
+        monkeypatch.setattr("disdantic.diagnose._scan_packages", mock_scan)
+
+        report = verify_registries()
+        assert report.is_healthy is False
+        assert any(
+            (
+                "Auto-population failed for registry "
+                "'BrokenPopRegistry': Simulated populate error"
+            )
+            in err
+            for err in report.import_errors
+        )
+
+    def _run_regression_base_type_rebuild_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class RebuildErrorRegistry(PydanticClassRegistryMixin):
+            model_type: str
+
+            @classmethod
+            def model_rebuild(cls, *args: Any, **kwargs: Any) -> Any:
+                raise ValueError("Simulated model rebuild error")
+
+        _active_registries.add(RebuildErrorRegistry)
+
+        report = verify_registries()
+        assert report.is_healthy is False
+
+    def _run_regression_child_class_compilation_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         class BrokenBase(PydanticClassRegistryMixin):
             model_type: str
 
@@ -451,292 +816,17 @@ class TestVerifyRegistries:
         finally:
             BrokenBase.clear_registry()
 
-    @pytest.mark.sanity
-    def test_invocation_non_pydantic_registry(self) -> None:
-        """Verify verify_registries works with non-Pydantic registry subclasses
-        and instances.
-        """
 
-        class SimpleRegistry(RegistryMixin[Any]):
-            pass
-
-        @SimpleRegistry.register("simple_class")
-        class SimpleChild:
-            pass
-
-        # Use property that raises AttributeError to guarantee missing __module__
-        class NoModuleObject:
-            @property
-            def __module__(self) -> str:
-                raise AttributeError("No module attribute exists")
-
-        mock_obj = NoModuleObject()
-
-        SimpleRegistry.registry["simple_instance"] = SimpleChild()
-        SimpleRegistry.registry["no_module"] = mock_obj
-
-        _active_registries.update([SimpleRegistry, SimpleChild])
-
-        report = verify_registries()
-        assert report.is_healthy is True
-
-        reg_diagnostics = next(
-            (
-                registry
-                for registry in report.registries
-                if registry.registry_name == "SimpleRegistry"
-            ),
-            None,
-        )
-        assert reg_diagnostics is not None
-        assert reg_diagnostics.discriminator_key == "N/A"
-        assert len(reg_diagnostics.models) == 3
-
-        names_found = {model.class_name for model in reg_diagnostics.models}
-        assert "SimpleChild" in names_found
-        assert "NoModuleObject" in names_found
-
-        module_paths = {model.module_path for model in reg_diagnostics.models}
-        assert "" in module_paths
-
-    @pytest.mark.regression
-    def test_invocation_base_type_rebuild_error(self) -> None:
-        """Verify that a Pydantic registry base class rebuild failure sets
-        health to False.
-        """
-
-        class RebuildErrorRegistry(PydanticClassRegistryMixin):
-            model_type: str
-
-            @classmethod
-            def model_rebuild(cls, *args: Any, **kwargs: Any) -> Any:
-                raise ValueError("Simulated model rebuild error")
-
-        _active_registries.add(RebuildErrorRegistry)
-
-        report = verify_registries()
-        assert report.is_healthy is False
-
-    @pytest.mark.sanity
-    def test_invocation_auto_package_string(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Verify packages_to_scan resolution with a string auto_package."""
-
-        class StringPkgRegistry(RegistryMixin[Any]):
-            auto_package = "single_pkg"
-
-        _active_registries.add(StringPkgRegistry)
-
-        scanned: list[str] = []
-
-        def mock_scan(
-            packages: list[str], ignore_set: set[str], errors_list: list[str]
-        ) -> None:
-            scanned.extend(packages)
-
-        monkeypatch.setattr("disdantic.diagnose._scan_packages", mock_scan)
-
-        report = verify_registries()
-        assert "single_pkg" in scanned
-        assert report.is_healthy is True
-
-    @pytest.mark.sanity
-    def test_invocation_auto_package_list(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Verify packages_to_scan resolution with a list/tuple of auto_packages."""
-
-        class ListPkgRegistry(RegistryMixin[Any]):
-            auto_package = ["pkg_one", "pkg_two"]
-
-        _active_registries.add(ListPkgRegistry)
-
-        scanned: list[str] = []
-
-        def mock_scan(
-            packages: list[str], ignore_set: set[str], errors_list: list[str]
-        ) -> None:
-            scanned.extend(packages)
-
-        monkeypatch.setattr("disdantic.diagnose._scan_packages", mock_scan)
-
-        report = verify_registries()
-        assert "pkg_one" in scanned
-        assert "pkg_two" in scanned
-        assert report.is_healthy is True
-
-    @pytest.mark.sanity
-    def test_invocation_auto_ignore_modules(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Verify that auto_ignore_modules from settings and registry classes
-        are collected.
-        """
-        settings = get_settings()
-        settings.auto_ignore_modules = ["settings_ignored"]
-
-        class IgnoreRegistry(RegistryMixin[Any]):
-            auto_ignore_modules = ["registry_ignored"]
-
-        _active_registries.add(IgnoreRegistry)
-
-        ignored: set[str] = set()
-
-        def mock_scan(
-            packages: list[str], ignore_set: set[str], errors_list: list[str]
-        ) -> None:
-            ignored.update(ignore_set)
-
-        monkeypatch.setattr("disdantic.diagnose._scan_packages", mock_scan)
-
-        report = verify_registries()
-        assert "settings_ignored" in ignored
-        assert "registry_ignored" in ignored
-        assert report.is_healthy is True
-
-    @pytest.mark.sanity
-    def test_invocation_package_no_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Verify that packages without __path__ are skipped without errors."""
-        settings = get_settings()
-        settings.auto_packages = ["no_path_pkg"]
-
-        mock_pkg = mock.Mock(spec=[])
-
-        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
-            if name == "no_path_pkg":
-                return mock_pkg
-            raise ImportError(f"Unexpected import request for {name}")
-
-        monkeypatch.setattr(importlib, "import_module", mock_import)
-
-        report = verify_registries()
-        assert report.is_healthy is True
-        assert len(report.import_errors) == 0
-
-    @pytest.mark.sanity
-    def test_invalid_import_root_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Verify behavior when the package root fails to import."""
-        settings = get_settings()
-        settings.auto_packages = ["broken_root_pkg"]
-
-        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
-            if name == "broken_root_pkg":
-                raise ImportError("Simulated package root import failure")
-            raise ImportError(f"Unexpected import request for {name}")
-
-        monkeypatch.setattr(importlib, "import_module", mock_import)
-
-        report = verify_registries()
-        assert report.is_healthy is False
-        assert any(
-            "Failed to import package root 'broken_root_pkg'" in err
-            for err in report.import_errors
-        )
-
-    @pytest.mark.sanity
-    def test_invalid_walk_package_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Verify error handling when walking a package raises an exception."""
-        settings = get_settings()
-        settings.auto_packages = ["valid_root_pkg"]
-
-        mock_pkg = mock.Mock()
-        mock_pkg.__path__ = ["/mock/path"]
-        mock_pkg.__name__ = "valid_root_pkg"
-
-        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
-            if name == "valid_root_pkg":
-                return mock_pkg
-            raise ImportError(f"Unexpected import request for {name}")
-
-        def mock_walk(path: Any, prefix: str, onerror: Any = None) -> Any:
-            raise ValueError("Simulated walk packages error")
-
-        monkeypatch.setattr(importlib, "import_module", mock_import)
-        monkeypatch.setattr(pkgutil, "walk_packages", mock_walk)
-
-        report = verify_registries()
-        assert report.is_healthy is False
-        assert any(
-            ("Error walking package 'valid_root_pkg': Simulated walk packages error")
-            in err
-            for err in report.import_errors
-        )
-
-    @pytest.mark.regression
-    def test_invalid_import_submodule_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Verify handling of submodule import failures during scan."""
-        settings = get_settings()
-        settings.auto_packages = ["valid_root_pkg"]
-
-        mock_pkg = mock.Mock()
-        mock_pkg.__path__ = ["/mock/path"]
-        mock_pkg.__name__ = "valid_root_pkg"
-
-        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
-            if name == "valid_root_pkg":
-                return mock_pkg
-            if name == "valid_root_pkg.broken_sub":
-                raise ImportError("Simulated submodule import failure")
-            raise ImportError(f"Unexpected import request for {name}")
-
-        def mock_walk(
-            path: Any, prefix: str, onerror: Any = None
-        ) -> Generator[tuple[Any, str, bool], None, None]:
-            yield None, "valid_root_pkg.broken_sub", False
-
-        monkeypatch.setattr(importlib, "import_module", mock_import)
-        monkeypatch.setattr(pkgutil, "walk_packages", mock_walk)
-
-        report = verify_registries()
-        assert report.is_healthy is False
-        assert any(
-            (
-                "Failed to import module 'valid_root_pkg.broken_sub': "
-                "Simulated submodule import failure"
-            )
-            in err
-            for err in report.import_errors
-        )
-
-    @pytest.mark.regression
-    def test_invalid_auto_populate_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Verify behavior when auto_populate_registry raises an exception."""
-
-        class BrokenPopRegistry(RegistryMixin[Any]):
-            auto_discovery_enabled = True
-            registry_populated = False
-            auto_package = "mock_pkg"
-
-            @classmethod
-            def is_auto_discovery_enabled(cls) -> bool:
-                return True
-
-            @classmethod
-            def auto_populate_registry(cls) -> bool:
-                raise ValueError("Simulated populate error")
-
-        _active_registries.add(BrokenPopRegistry)
-
-        settings = get_settings()
-        settings.auto_packages = []
-
-        def mock_scan(
-            packages: list[str], ignore_set: set[str], errors_list: list[str]
-        ) -> None:
-            pass
-
-        monkeypatch.setattr("disdantic.diagnose._scan_packages", mock_scan)
-
-        report = verify_registries()
-        assert report.is_healthy is False
-        assert any(
-            (
-                "Auto-population failed for registry 'BrokenPopRegistry': "
-                "Simulated populate error"
-            )
-            in err
-            for err in report.import_errors
-        )
+@pytest.mark.smoke
+def test_all_exports() -> None:
+    """Verify public module exports of disdantic.diagnose."""
+    assert hasattr(disdantic.diagnose, "__all__")
+    expected = {
+        "DiagnosticsReport",
+        "RegistryDiagnostics",
+        "RegistryModelInfo",
+        "verify_registries",
+    }
+    assert set(disdantic.diagnose.__all__) == expected
+    for name in expected:
+        assert hasattr(disdantic.diagnose, name)

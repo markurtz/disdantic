@@ -29,6 +29,7 @@ import sys
 from collections.abc import Sequence
 from typing import ClassVar
 
+from disdantic.exceptions import MissingPackagesError
 from disdantic.settings import get_settings
 
 __all__ = ["AutoImporterMixin"]
@@ -78,7 +79,7 @@ class AutoImporterMixin:
         """
         packages = cls._resolve_auto_packages()
         if not packages:
-            raise ValueError(
+            raise MissingPackagesError(
                 f"The class variable 'auto_package' must be configured on "
                 f"{cls.__name__} or 'auto_packages' configured in settings "
                 f"to enable automated package discovery."

@@ -19,6 +19,8 @@ from __future__ import annotations
 import inspect
 import threading
 import time
+from typing import Any
+from unittest import mock
 
 import pytest
 
@@ -62,13 +64,18 @@ class TestSingletonMeta:
 
     @pytest.fixture(
         params=[
-            DummyServiceA,
-            DummyServiceB,
+            "service_a",
+            "service_b",
         ]
     )
-    def valid_instances(self, request: pytest.FixtureRequest) -> type:
-        """Fixture providing varied singleton classes (instances of SingletonMeta)."""
-        return request.param
+    def valid_instances(self, request: pytest.FixtureRequest) -> Any:
+        """Fixture providing varied singleton class instances."""
+        SingletonMeta.clear_all_singletons()
+        if request.param == "service_a":
+            return DummyServiceA(value="hello")
+        elif request.param == "service_b":
+            return DummyServiceB(number=100, flag=True)
+        raise ValueError("Unknown fixture parameter")
 
     @pytest.mark.smoke
     def test_signature(self) -> None:
@@ -87,37 +94,33 @@ class TestSingletonMeta:
         assert "kwargs" in call_signature.parameters
 
     @pytest.mark.smoke
-    def test_initialization(self, valid_instances: type) -> None:
+    def test_initialization(self, valid_instances: Any) -> None:
         """Verify that instantiation caches and returns the exact same instance."""
-        # Setup: Reset singleton state
-        SingletonMeta.clear_all_singletons()
+        cls = type(valid_instances)
+        if cls is DummyServiceA:
+            assert valid_instances.value == "hello"
+        elif cls is DummyServiceB:
+            assert valid_instances.number == 100
+            assert valid_instances.flag is True
 
-        # Invoke: Create instances
-        instance_one = valid_instances()
-        instance_two = valid_instances()
-
-        # Assert: Verify identity
-        assert instance_one is instance_two
+        instance_two = cls()
+        assert valid_instances is instance_two
 
     @pytest.mark.sanity
     def test_invalid_initialization_values(self) -> None:
         """Verify initialization with malformed values fails custom validation."""
-        # Setup: Reset singleton state
         SingletonMeta.clear_all_singletons()
-
-        # Invoke & Assert: Passing invalid parameter type
         with pytest.raises(ValueError, match="value must be an integer"):
-            StrictService("not_an_integer")
+            StrictService(value="not_an_integer")
+        assert StrictService not in SingletonMeta._instances
 
     @pytest.mark.sanity
     def test_invalid_initialization_missing(self) -> None:
         """Verify initialization with missing required parameters raises TypeError."""
-        # Setup: Reset singleton state
         SingletonMeta.clear_all_singletons()
-
-        # Invoke & Assert: Omit required argument
         with pytest.raises(TypeError):
             RequiredArgService()
+        assert RequiredArgService not in SingletonMeta._instances
 
     @pytest.mark.sanity
     def test_clear_instances(self) -> None:
@@ -127,11 +130,18 @@ class TestSingletonMeta:
         instance_one = DummyServiceA("one")
         assert DummyServiceA in SingletonMeta._instances
 
-        # Invoke: Clear instances for the class
-        DummyServiceA.clear_instances()
+        # Mock: Wrap the lock to verify it was acquired
+        with mock.patch.object(
+            SingletonMeta, "_lock", wraps=SingletonMeta._lock
+        ) as mock_lock:
+            # Invoke: Clear instances for the class
+            DummyServiceA.clear_instances()
 
-        # Assert: Verify eviction and subsequent instantiation creates new instance
+            # Assert/Teardown: Verify eviction and lock behavior
+            mock_lock.__enter__.assert_called_once()
+
         assert DummyServiceA not in SingletonMeta._instances
+
         instance_two = DummyServiceA("two")
         assert instance_one is not instance_two
         assert instance_two.value == "two"
@@ -146,11 +156,19 @@ class TestSingletonMeta:
         assert DummyServiceA in SingletonMeta._instances
         assert DummyServiceB in SingletonMeta._instances
 
-        # Invoke: Clear all singletons
-        SingletonMeta.clear_all_singletons()
+        # Mock: Wrap the lock to verify it was acquired
+        with mock.patch.object(
+            SingletonMeta, "_lock", wraps=SingletonMeta._lock
+        ) as mock_lock:
+            # Invoke: Clear all singletons
+            SingletonMeta.clear_all_singletons()
 
-        # Assert: Verify both are evicted
+            # Assert: Verify lock was acquired
+            mock_lock.__enter__.assert_called_once()
+
+        # Verify both are evicted
         assert len(SingletonMeta._instances) == 0
+
         new_instance_a = DummyServiceA()
         new_instance_b = DummyServiceB()
         assert instance_a is not new_instance_a

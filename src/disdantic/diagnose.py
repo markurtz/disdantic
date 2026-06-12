@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Registry diagnostics and integrity check orchestrator.
+"""Registry diagnostics and integrity check orchestrator for subclass registries.
 
 This module provides programmatic tools and interfaces to scan Python packages,
 recursively import modules to trigger dynamic model registration, and verify the
@@ -27,12 +27,14 @@ from __future__ import annotations
 
 import importlib
 import pkgutil
+import sys
 from typing import Any, cast
 
 from pydantic import BaseModel, Field
 
+import disdantic.settings
 from disdantic.registry import PydanticClassRegistryMixin, RegistryMixin
-from disdantic.settings import Settings, get_settings
+from disdantic.settings import Settings
 
 __all__ = [
     "DiagnosticsReport",
@@ -42,167 +44,41 @@ __all__ = [
 ]
 
 
-class RegistryModelInfo(BaseModel):
-    """Metadata and compilation status of a single model inside a registry.
+def verify_registries(settings: Settings | None = None) -> DiagnosticsReport:
+    """Scan configured packages, discover registries, and verify compilation.
 
-    This class provides detailed metadata for a registered class, including its
-    identifier, module path, and compilation state (whether Pydantic successfully
-    compiled its schema).
-
-    Example:
+    Examples:
         .. code-block:: python
 
-            info = RegistryModelInfo(
-                key="text",
-                class_name="TextMessage",
-                module_path="disdantic.examples",
-                compilation_status="healthy",
-                error_detail=None,
-            )
-    """
-
-    key: str = Field(
-        description="The registration key identifying the model in the registry."
-    )
-    class_name: str = Field(description="The name of the registered Python class.")
-    module_path: str = Field(
-        description=(
-            "The fully qualified import path of the module containing the class."
-        )
-    )
-    compilation_status: str = Field(
-        description="The schema compilation status. Must be 'healthy' or 'error'."
-    )
-    error_detail: str | None = Field(
-        default=None,
-        description=(
-            "Detailed compilation error trace if status is 'error', otherwise None."
-        ),
-    )
-
-
-class RegistryDiagnostics(BaseModel):
-    """Diagnostic details for an isolated registry class.
-
-    This class captures the configuration, discovered models, and orphaned classes
-    for a specific registry base class subclassing RegistryMixin.
-
-    Example:
-        .. code-block:: python
-
-            diag = RegistryDiagnostics(
-                registry_name="MessageBase",
-                discriminator_key="type",
-                auto_discovery_enabled=True,
-                models=[...],
-                orphans=[],
-            )
-    """
-
-    registry_name: str = Field(description="The name of the registry base class.")
-    discriminator_key: str = Field(
-        description=(
-            "The field key used as the discriminator for polymorph/union "
-            "schema generation."
-        )
-    )
-    auto_discovery_enabled: bool = Field(
-        description="Whether package auto-discovery is enabled for this registry."
-    )
-    models: list[RegistryModelInfo] = Field(
-        default_factory=list,
-        description="List of registered model metadata and health checks.",
-    )
-    orphans: list[str] = Field(
-        default_factory=list,
-        description=(
-            "Fully qualified names of subclasses discovered but not registered "
-            "under any key."
-        ),
-    )
-
-
-class DiagnosticsReport(BaseModel):
-    """Aggregated status report of all registry checks.
-
-    This class aggregates the health status and diagnostics details for all discovered
-    subclass registries across all scanned packages.
-
-    Example:
-        .. code-block:: python
-
-            report = DiagnosticsReport(
-                is_healthy=True,
-                scanned_packages=["myapp.models"],
-                registries=[...],
-                import_errors=[],
-            )
-    """
-
-    is_healthy: bool = Field(
-        description=(
-            "Overall health status. False if any registry has errors or failed imports."
-        )
-    )
-    scanned_packages: list[str] = Field(
-        description="List of package names scanned during the auto-discovery check."
-    )
-    registries: list[RegistryDiagnostics] = Field(
-        default_factory=list,
-        description="Diagnostic details for each active registry subclass.",
-    )
-    import_errors: list[str] = Field(
-        default_factory=list,
-        description=(
-            "List of import error messages encountered during package scanning."
-        ),
-    )
-
-
-def verify_registries() -> DiagnosticsReport:
-    """Scans configured packages, discovers registries, and verifies integrity.
-
-    This function loads global settings, recursively scans and imports all
-    configured packages to ensure all subclass registries are discovered, checks
-    if registered Pydantic models compile successfully, and reports any orphaned
-    subclasses.
-
-    Example:
-        .. code-block:: python
+            from disdantic.diagnose import verify_registries
 
             report = verify_registries()
             if not report.is_healthy:
                 print(f"Diagnostics failed. Errors: {report.import_errors}")
 
+    :param settings: Optional settings configuration instance to customize packages
+        and ignore rules.
     :returns: The aggregated health diagnostics report.
     """
-    settings = get_settings()
-    unique_packages = _resolve_packages_to_scan(settings)
-    ignore_set = _resolve_ignore_set(settings)
+    if settings is not None:
+        with disdantic.settings._settings_lock:  # noqa: SLF001
+            disdantic.settings._global_settings = settings  # noqa: SLF001
+
+    resolved_settings = disdantic.settings.get_settings()
+    unique_packages = _resolve_packages_to_scan(resolved_settings)
+    ignore_set = _resolve_ignore_set(resolved_settings)
 
     import_errors: list[str] = []
     _scan_packages(unique_packages, ignore_set, import_errors)
 
-    all_registries = _get_all_subclasses(RegistryMixin)
-    valid_registries: list[type[RegistryMixin[Any]]] = []
-    for subclass in all_registries:
-        if subclass.__name__ in ("RegistryMixin", "PydanticClassRegistryMixin"):
-            continue
-        if issubclass(subclass, PydanticClassRegistryMixin) and (
-            subclass.__pydantic_schema_base_type__() is not subclass
-        ):
-            continue
-        if subclass not in valid_registries:
-            valid_registries.append(cast("type[RegistryMixin[Any]]", subclass))
-
-    valid_registries.sort(key=lambda registry: registry.__name__)
+    valid_registries = _find_valid_registries()
 
     registries_diagnostics: list[RegistryDiagnostics] = []
     is_healthy = len(import_errors) == 0
 
     for registry_class in valid_registries:
-        diag = _diagnose_registry(registry_class, import_errors)
-        registries_diagnostics.append(diag)
+        registry_diag = _diagnose_registry(registry_class, import_errors)
+        registries_diagnostics.append(registry_diag)
 
         if issubclass(registry_class, PydanticClassRegistryMixin):
             try:
@@ -211,7 +87,7 @@ def verify_registries() -> DiagnosticsReport:
             except Exception:  # noqa: BLE001
                 is_healthy = False
 
-        if any(model.compilation_status == "error" for model in diag.models):
+        if any(model.compilation_status == "error" for model in registry_diag.models):
             is_healthy = False
 
     if import_errors:
@@ -223,6 +99,147 @@ def verify_registries() -> DiagnosticsReport:
         registries=registries_diagnostics,
         import_errors=import_errors,
     )
+
+
+class DiagnosticsReport(BaseModel):
+    """Aggregated health status and discovery details of all checked registries.
+
+    This class serves as the root container returned by the verification pipeline. It
+    consolidates individual registry diagnostics, scanned packages, and import failure
+    traces into a single report.
+
+    Examples:
+        .. code-block:: python
+
+            from disdantic.diagnose import verify_registries
+
+            report = verify_registries()
+            if not report.is_healthy:
+                print(f"Scanned packages: {report.scanned_packages}")
+                print(f"Import errors: {report.import_errors}")
+    """
+
+    is_healthy: bool = Field(
+        description=(
+            "Indicates whether the entire check is clean, enabling safe dynamic model "
+            "resolution with zero registry or import failures."
+        )
+    )
+    scanned_packages: list[str] = Field(
+        description="Maps the list of Python package names traversed during discovery."
+    )
+    registries: list[RegistryDiagnostics] = Field(
+        default_factory=list,
+        description=(
+            "Configures the collection of registry-specific diagnostics reports."
+        ),
+    )
+    import_errors: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Maps the traceback strings for import errors encountered during scanning."
+        ),
+    )
+
+
+class RegistryDiagnostics(BaseModel):
+    """Configuration, model metadata, and integrity status of a registry.
+
+    This class tracks the metadata of a single registry subclassing RegistryMixin. It
+    records the dynamic auto-discovery configuration, registered sub-models, and any
+    orphaned subclasses that were imported but failed to register.
+
+    Examples:
+        .. code-block:: python
+
+            from disdantic.diagnose import verify_registries
+
+            report = verify_registries()
+            for registry in report.registries:
+                print(f"Registry: {registry.registry_name}")
+                print(f"Orphaned subclasses: {registry.orphans}")
+    """
+
+    registry_name: str = Field(
+        description="Maps the name of the registry base class under diagnostic check."
+    )
+    discriminator_key: str = Field(
+        description=(
+            "Configures the attribute name used to identify model types in polymorphic "
+            "schemas."
+        )
+    )
+    auto_discovery_enabled: bool = Field(
+        description=(
+            "Enables package scanning and dynamic registration for this registry."
+        )
+    )
+    models: list[RegistryModelInfo] = Field(
+        default_factory=list,
+        description=(
+            "Configures the list of registered models and their compilation states."
+        ),
+    )
+    orphans: list[str] = Field(
+        default_factory=list,
+        description="Maps imported subclasses that are not registered with any key.",
+    )
+
+
+class RegistryModelInfo(BaseModel):
+    """Metadata and compilation status of a registered subclass inside a registry.
+
+    This class captures the import details, registration key, and Pydantic schema
+    compilation status of a single model registered under a RegistryMixin class.
+
+    Examples:
+        .. code-block:: python
+
+            from disdantic.diagnose import verify_registries
+
+            report = verify_registries()
+            for registry in report.registries:
+                for model in registry.models:
+                    if model.compilation_status == "error":
+                        print(
+                            f"Model {model.class_name} compilation error: "
+                            f"{model.error_detail}"
+                        )
+    """
+
+    key: str = Field(
+        description="Maps the unique lookup key used to register this subclass."
+    )
+    class_name: str = Field(description="Maps the name of the registered Python class.")
+    module_path: str = Field(
+        description="Maps the import path of the module defining the model class."
+    )
+    compilation_status: str = Field(
+        description="Configures the health status, set to 'healthy' or 'error'."
+    )
+    error_detail: str | None = Field(
+        default=None,
+        description=(
+            "Maps the traceback or validation error message if compilation failed."
+        ),
+    )
+
+
+def _find_valid_registries() -> list[type[RegistryMixin[Any]]]:
+    # Finds all valid subclasses of RegistryMixin to verify.
+    all_registries = _get_all_subclasses(RegistryMixin)
+    valid_registries: list[type[RegistryMixin[Any]]] = []
+    for subclass in all_registries:
+        if subclass.__name__ in ("RegistryMixin", "PydanticClassRegistryMixin"):
+            continue
+        if issubclass(subclass, PydanticClassRegistryMixin) and (
+            subclass.__pydantic_schema_base_type__() is not subclass
+        ):
+            continue
+        if subclass not in valid_registries:
+            valid_registries.append(cast("type[RegistryMixin[Any]]", subclass))
+    valid_registries.sort(key=lambda registry: registry.__name__)
+    return valid_registries
 
 
 def _resolve_packages_to_scan(settings: Settings) -> list[str]:
@@ -242,11 +259,7 @@ def _resolve_packages_to_scan(settings: Settings) -> list[str]:
             else:
                 packages_to_scan.extend(auto_package)
 
-    unique_packages: list[str] = []
-    for package_name in packages_to_scan:
-        if package_name not in unique_packages:
-            unique_packages.append(package_name)
-    return unique_packages
+    return list(dict.fromkeys(packages_to_scan))
 
 
 def _resolve_ignore_set(settings: Settings) -> set[str]:
@@ -313,7 +326,8 @@ def _diagnose_registry(
         discriminator_key = getattr(registry_class, "schema_discriminator", "N/A")
 
     has_packages = bool(
-        getattr(registry_class, "auto_package", None) or get_settings().auto_packages
+        getattr(registry_class, "auto_package", None)
+        or disdantic.settings.get_settings().auto_packages
     )
 
     if (
@@ -390,6 +404,11 @@ def _get_all_subclasses(cls: type) -> set[type]:
     # Helper to recursively find all subclasses of a given class.
     subclasses = set()
     for subclass in cls.__subclasses__():
-        subclasses.add(subclass)
-        subclasses.update(_get_all_subclasses(subclass))
+        if (
+            hasattr(subclass, "__module__")
+            and isinstance(subclass.__module__, str)
+            and subclass.__module__ in sys.modules
+        ):
+            subclasses.add(subclass)
+            subclasses.update(_get_all_subclasses(subclass))
     return subclasses

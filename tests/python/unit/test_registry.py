@@ -26,7 +26,13 @@ import pytest
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pytest_mock import MockerFixture
 
-from disdantic.exceptions import DiscriminatorNotFoundError, RegistryCollisionError
+from disdantic.exceptions import (
+    AutoPopulationError,
+    DiscriminatorNotFoundError,
+    EmptyRegistryError,
+    MissingPackagesError,
+    RegistryCollisionError,
+)
 from disdantic.importer import AutoImporterMixin
 from disdantic.model import ReloadableBaseModel
 from disdantic.registry import (
@@ -82,8 +88,10 @@ class TestRegistryMixin:
     def clear_registry_fixture(self) -> Generator[None, None, None]:
         """Clear registry before and after each test to isolate state."""
         ConcreteRegistry.clear_registry()
+        ConcreteRegistry.registry_auto_discovery = False
         yield
         ConcreteRegistry.clear_registry()
+        ConcreteRegistry.registry_auto_discovery = False
 
     @pytest.fixture(params=["variant_alpha", "variant_beta"])
     def valid_instances(self, request: pytest.FixtureRequest) -> ConcreteRegistry:
@@ -193,7 +201,7 @@ class TestRegistryMixin:
             ConcreteRegistry.register_decorator(DummyClass, name={"name": "fail"})  # type: ignore
 
         err_msg = "Registry keys must explicitly be strings"
-        with pytest.raises(ValueError, match=err_msg):
+        with pytest.raises(TypeError, match=err_msg):
             ConcreteRegistry.register_decorator(DummyClass, name=["valid_name", 123])  # type: ignore
 
     @pytest.mark.regression
@@ -206,6 +214,12 @@ class TestRegistryMixin:
 
         with pytest.raises(RegistryCollisionError, match="Collision detected"):
             ConcreteRegistry.register_decorator(AnotherClass, name="colliding_key")
+
+    @pytest.mark.regression
+    def test_register_decorator_collision_in_sequence(self) -> None:
+        """Verify sequence containing duplicate names raises RegistryCollisionError."""
+        with pytest.raises(RegistryCollisionError, match="Collision detected"):
+            ConcreteRegistry.register_decorator(DummyClass, name=["dup_key", "dup_key"])
 
     @pytest.mark.sanity
     def test_auto_populate_registry(self, mocker: MockerFixture) -> None:
@@ -228,6 +242,21 @@ class TestRegistryMixin:
         mock_import_package.reset_mock()
         assert ConcreteRegistry.auto_populate_registry() is False
         mock_import_package.assert_not_called()
+
+    @pytest.mark.regression
+    def test_auto_populate_registry_failure_state(self, mocker: MockerFixture) -> None:
+        """Verify dynamic import failures leave registry unpopulated."""
+        ConcreteRegistry.registry_auto_discovery = True
+        mocker.patch.object(
+            ConcreteRegistry,
+            "auto_import_package_modules",
+            side_effect=RuntimeError("Dynamic import failure"),
+        )
+
+        with pytest.raises(RuntimeError, match="Dynamic import failure"):
+            ConcreteRegistry.auto_populate_registry()
+
+        assert ConcreteRegistry.registry_populated is False
 
     @pytest.mark.smoke
     def test_registered_objects(self, mocker: MockerFixture) -> None:
@@ -337,6 +366,38 @@ class TestRegistryMixin:
         )
         assert not ConcreteRegistry.registry
 
+    @pytest.mark.sanity
+    def test_selective_value_error_suppression(self, mocker: MockerFixture) -> None:
+        """Verify ValueErrors other than 'Auto-population rejected' propagate."""
+        # Case 1: Configuration error (missing auto_package) should be propagated
+        ConcreteRegistry.registry_auto_discovery = True
+        ConcreteRegistry.auto_package = None
+        get_settings().auto_packages = []
+
+        err_msg = "The class variable 'auto_package' must be configured"
+        with pytest.raises(MissingPackagesError, match=err_msg):
+            ConcreteRegistry.registered_objects()
+
+        with pytest.raises(MissingPackagesError, match=err_msg):
+            ConcreteRegistry.is_registered("dummy")
+
+        with pytest.raises(MissingPackagesError, match=err_msg):
+            ConcreteRegistry.get_registered_object("dummy")
+
+        # Case 2: 'Auto-population rejected' error should be suppressed
+        mocker.patch.object(
+            ConcreteRegistry,
+            "auto_populate_registry",
+            side_effect=AutoPopulationError(
+                "Auto-population rejected: registry_auto_discovery is disabled"
+            ),
+        )
+
+        # These should run successfully without raising ValueError
+        assert ConcreteRegistry.registered_objects() == ()
+        assert ConcreteRegistry.is_registered("dummy") is False
+        assert ConcreteRegistry.get_registered_object("dummy") is None
+
 
 class TestPydanticClassRegistryMixin:
     """Test suite for validating PydanticClassRegistryMixin functionality."""
@@ -352,10 +413,12 @@ class TestPydanticClassRegistryMixin:
     def setup_pydantic_registry(self) -> Generator[None, None, None]:
         """Ensure registry is populated before each test and cleaned up."""
         PydanticBaseTestModel.clear_registry()
+        PydanticBaseTestModel.registry_auto_discovery = False
         PydanticBaseTestModel.register_decorator(PydanticTextTestModel, name="text")
         PydanticBaseTestModel.register_decorator(PydanticImageTestModel, name="image")
         yield
         PydanticBaseTestModel.clear_registry()
+        PydanticBaseTestModel.registry_auto_discovery = False
 
     @pytest.fixture(params=["text_msg", "image_msg"])
     def valid_instances(self, request: pytest.FixtureRequest) -> PydanticBaseTestModel:
@@ -451,7 +514,9 @@ class TestPydanticClassRegistryMixin:
         class EmptyBase(PydanticClassRegistryMixin):
             pass
 
-        with pytest.raises(ValueError, match="No objects are currently present"):
+        with pytest.raises(
+            EmptyRegistryError, match="No objects are currently present"
+        ):
             EmptyBase.registered_classes()
 
     @pytest.mark.sanity
@@ -621,6 +686,24 @@ class TestPydanticClassRegistryMixin:
         assert model_instance.content == "test_content"
         assert model_instance.text_val == "resilient"
 
+    @pytest.mark.regression
+    def test_model_validate_instance_directly(self) -> None:
+        """Verify validating model objects directly succeeds."""
+        instance_object = PydanticTextTestModel(content="hello", text_val="world")
+        validated_object = PydanticBaseTestModel.model_validate(instance_object)
+        assert isinstance(validated_object, PydanticTextTestModel)
+        assert validated_object.content == "hello"
+        assert validated_object.text_val == "world"
+
+    @pytest.mark.regression
+    def test_subclass_direct_validation(self) -> None:
+        """Verify validating via subclass bypasses tagged union."""
+        data_payload = {"content": "subclass_only", "text_val": "direct"}
+        validated_object = PydanticTextTestModel.model_validate(data_payload)
+        assert isinstance(validated_object, PydanticTextTestModel)
+        assert validated_object.content == "subclass_only"
+        assert validated_object.text_val == "direct"
+
 
 class TestRegistryManager:
     """Test suite for validating RegistryManager functionality."""
@@ -730,6 +813,49 @@ class TestRegistryManager:
 
         # Assert that the auto_import was executed
         assert mock_import_call.call_count >= 1
+
+    @pytest.mark.regression
+    def test_discover_registries_auto_populate(self, mocker: MockerFixture) -> None:
+        """Verify list_registries auto-populates discovery."""
+
+        # Setup temporary registry with auto-discovery enabled
+        class AutoPopulatingRegistry(RegistryMixin[type]):
+            registry_auto_discovery = True
+
+        mock_populate = mocker.patch.object(
+            AutoPopulatingRegistry,
+            "auto_populate_registry",
+            return_value=True,
+        )
+
+        RegistryManager.list_registries()
+        mock_populate.assert_called_once()
+
+        # Clean up
+        AutoPopulatingRegistry.clear_registry()
+
+    @pytest.mark.regression
+    def test_discover_registries_auto_populate_exception(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Verify list_registries suppresses exceptions."""
+
+        class FailingAutoPopRegistry(RegistryMixin[type]):
+            registry_auto_discovery = True
+
+        mock_populate = mocker.patch.object(
+            FailingAutoPopRegistry,
+            "auto_populate_registry",
+            side_effect=RuntimeError("Population failure"),
+        )
+
+        # Should execute successfully despite the raised exception
+        registries_dict = RegistryManager.list_registries()
+        assert "FailingAutoPopRegistry" in registries_dict
+        mock_populate.assert_called_once()
+
+        # Clean up
+        FailingAutoPopRegistry.clear_registry()
 
     @pytest.mark.regression
     def test_resolve_val_path_fallback(self) -> None:

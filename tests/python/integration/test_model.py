@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Integration tests for the model module."""
+
 from __future__ import annotations
 
 import inspect
@@ -90,25 +92,25 @@ def test_model_exports() -> None:
     assert sorted(model_module.__all__) == sorted(expected_exports)
 
 
-@pytest.mark.sanity
-def test_interface_signature_validation() -> None:
-    """Validate structural contracts across integrated boundaries."""
-    # Check inheritance lineage
-    assert issubclass(ReloadableBaseModel, BaseModel)
-
-    # Check method signatures and parameter names
-    reload_schema_sig = inspect.signature(ReloadableBaseModel.reload_schema)
-    assert "parents" in reload_schema_sig.parameters
-    assert reload_schema_sig.parameters["parents"].default is True
-
-    reload_parent_sig = inspect.signature(ReloadableBaseModel.reload_parent_schemas)
-    assert len(reload_parent_sig.parameters) == 0 or (
-        len(reload_parent_sig.parameters) == 1 and "cls" in reload_parent_sig.parameters
-    )
-
-
 class TestReloadableBaseModel:
     """Integration test suite for ReloadableBaseModel."""
+
+    @pytest.mark.sanity
+    def test_interface_signature_validation(self) -> None:
+        """Validate structural contracts across integrated boundaries."""
+        # Check inheritance lineage
+        assert issubclass(ReloadableBaseModel, BaseModel)
+
+        # Check method signatures and parameter names
+        reload_schema_sig = inspect.signature(ReloadableBaseModel.reload_schema)
+        assert "parents" in reload_schema_sig.parameters
+        assert reload_schema_sig.parameters["parents"].default is True
+
+        reload_parent_sig = inspect.signature(ReloadableBaseModel.reload_parent_schemas)
+        assert len(reload_parent_sig.parameters) == 0 or (
+            len(reload_parent_sig.parameters) == 1
+            and "cls" in reload_parent_sig.parameters
+        )
 
     @pytest.fixture(autouse=True)
     def clean_settings_and_registry(self) -> Generator[None, None, None]:
@@ -197,7 +199,7 @@ class TestReloadableBaseModel:
 
         # Trigger generic model reloading to cover line 166 (origin subclass resolution)
         alias = types.GenericAlias(GenericBase, (int,))
-        assert ReloadableBaseModel._uses_type(GenericBase, alias) is True
+        assert ReloadableBaseModel._references_type(GenericBase, alias) is True
         generic_rebuild_mock = mocker.patch.object(
             GenericChildModel, "model_rebuild", wraps=GenericChildModel.model_rebuild
         )
@@ -379,3 +381,46 @@ class TestReloadableBaseModel:
 
         assert post_rebuild_mock.call_count >= 1
         post_rebuild_mock.assert_called_with(force=True)
+
+    @pytest.mark.sanity
+    def test_reload_schema_no_dependents(self) -> None:
+        """Verify reload_schema returns early when there are no dependents.
+
+        Checks behavior when there are no dependent parent models.
+        """
+
+        class StandaloneModel(ReloadableBaseModel):
+            value: int
+
+        # Rebuilding StandaloneModel should succeed and return early in
+        # _rebuild_dependents because no other active subclasses of
+        # BaseModel reference it.
+        StandaloneModel.reload_schema(parents=True)
+
+    @pytest.mark.regression
+    def test_reload_schema_cyclic_dependencies(self) -> None:
+        """Verify cyclic dependencies are handled gracefully.
+
+        Uses alphabetical fallback when sorting cycle.
+        """
+
+        class CycleTarget(ReloadableBaseModel):
+            value: int
+
+        # We must define the cycle carefully.
+        # Since CycleA and CycleB reference each other, we can use forward refs.
+        class CycleA(ReloadableBaseModel):
+            target: CycleTarget
+            sibling: CycleB | None = None
+
+        class CycleB(ReloadableBaseModel):
+            sibling: CycleA | None = None
+
+        # Rebuild to resolve forward references
+        CycleA.model_rebuild(force=True)
+        CycleB.model_rebuild(force=True)
+
+        # Triggering reload on CycleTarget should trigger a rebuild of
+        # CycleA and CycleB, resolving the cycle via alphabetical fallback
+        # (CycleA, CycleB).
+        CycleTarget.reload_schema(parents=True)

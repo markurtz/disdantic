@@ -207,157 +207,188 @@ class TestOtelSink:
         with pytest.raises(TypeError):
             OtelSink()  # type: ignore
 
-    @pytest.mark.sanity
-    def test_write_raw_messages(self, tmp_path: Path) -> None:
-        """Verify writing raw string messages to streams and files."""
-        stream_target = StringIO()
-        sink_stream = OtelSink(stream_target)
-        sink_stream.write("raw integration message\n")
-        assert stream_target.getvalue() == "raw integration message\n"
-
-        file_target_path = tmp_path / "otel_raw.log"
-        sink_file = OtelSink(file_target_path)
-        sink_file.write("file integration message\n")
-        sink_file.close()
-        assert (
-            file_target_path.read_text(encoding="utf-8") == "file integration message\n"
-        )
-
     @pytest.mark.regression
-    def test_write_otel_record(self) -> None:
-        """Verify writing and converting loguru records to OpenTelemetry JSON."""
+    @pytest.mark.parametrize(
+        "scenario",
+        [
+            "raw_stream",
+            "raw_file",
+            "otel_standard",
+            "otel_trace",
+            "otel_exception",
+            "otel_private_helpers",
+        ],
+    )
+    def test_write(self, scenario: str, tmp_path: Path) -> None:
+        """Verify writing logs to various targets under different configurations."""
+        if scenario == "raw_stream":
+            stream_target = StringIO()
+            sink_stream = OtelSink(stream_target)
+            sink_stream.write("raw integration message\n")
+            assert stream_target.getvalue() == "raw integration message\n"
 
-        class MockLevel:
-            name = "INFO"
+        elif scenario == "raw_file":
+            file_target_path = tmp_path / "otel_raw.log"
+            sink_file = OtelSink(file_target_path)
+            sink_file.write("file integration message\n")
+            sink_file.close()
+            actual_text = file_target_path.read_text(encoding="utf-8")
+            assert actual_text == "file integration message\n"
 
-        mock_process_obj = MagicMock()
-        set_process_id_helper(mock_process_obj, 1234)
+        elif scenario == "otel_standard":
 
-        record_dict = {
-            "time": datetime(2026, 6, 11, 11, 30, 0),
-            "level": MockLevel(),
-            "message": "structured message",
-            "name": "disdantic.logging",
-            "function": "test_write_otel_record",
-            "line": 150,
-            "process": mock_process_obj,
-            "extra": {"context_field": "context_value"},
-        }
+            class MockLevel:
+                name = "INFO"
 
-        class MockMessage(str):
-            record: dict[str, Any]
+            mock_process_obj = MagicMock()
+            set_process_id_helper(mock_process_obj, 1234)
 
-        message_instance = MockMessage("formatted\n")
-        message_instance.record = record_dict
+            record_dict = {
+                "time": datetime(2026, 6, 11, 11, 30, 0),
+                "level": MockLevel(),
+                "message": "structured message",
+                "name": "disdantic.logging",
+                "function": "test_write",
+                "line": 150,
+                "process": mock_process_obj,
+                "extra": {"context_field": "context_value"},
+            }
 
-        stream_target = StringIO()
-        sink_stream = OtelSink(stream_target)
-        sink_stream.write(message_instance)
-        output_data = json.loads(stream_target.getvalue())
+            class MockMessage(str):
+                record: dict[str, Any]
 
-        assert output_data["timestamp"] == "2026-06-11T11:30:00"
-        assert output_data["severity_text"] == "INFO"
-        assert output_data["body"] == "structured message"
-        assert output_data["attributes"]["module"] == "disdantic.logging"
-        assert output_data["attributes"]["context_field"] == "context_value"
+            message_instance = MockMessage("formatted\n")
+            message_instance.record = record_dict
 
-    @pytest.mark.regression
-    def test_write_otel_record_with_trace(self) -> None:
-        """Verify trace context fields are added when tracing is present."""
+            stream_target = StringIO()
+            sink_stream = OtelSink(stream_target)
+            sink_stream.write(message_instance)
+            output_data = json.loads(stream_target.getvalue())
 
-        class MockSpanContext:
-            is_valid = True
-            trace_id = 9988776655
-            span_id = 112233
-            trace_flags = 2
+            assert output_data["timestamp"] == "2026-06-11T11:30:00"
+            assert output_data["severity_text"] == "INFO"
+            assert output_data["body"] == "structured message"
+            assert output_data["attributes"]["module"] == "disdantic.logging"
+            assert output_data["attributes"]["context_field"] == "context_value"
 
-        class MockSpan:
-            def get_span_context(self) -> MockSpanContext:
-                return MockSpanContext()
+        elif scenario == "otel_trace":
 
-        class MockTrace:
-            def get_current_span(self) -> MockSpan:
-                return MockSpan()
+            class MockSpanContext:
+                is_valid = True
+                trace_id = 9988776655
+                span_id = 112233
+                trace_flags = 2
 
-        class MockLevel:
-            name = "DEBUG"
+            class MockSpan:
+                def get_span_context(self) -> MockSpanContext:
+                    return MockSpanContext()
 
-        mock_process_obj = MagicMock()
-        set_process_id_helper(mock_process_obj, 5678)
+            class MockTrace:
+                def get_current_span(self) -> MockSpan:
+                    return MockSpan()
 
-        record_dict = {
-            "time": datetime(2026, 6, 11, 11, 40, 0),
-            "level": MockLevel(),
-            "message": "traced log message",
-            "name": "disdantic.logging",
-            "function": "test_write_otel_record_with_trace",
-            "line": 200,
-            "process": mock_process_obj,
-            "extra": {},
-        }
+            class MockLevel:
+                name = "DEBUG"
 
-        class MockMessage(str):
-            record: dict[str, Any]
+            mock_process_obj = MagicMock()
+            set_process_id_helper(mock_process_obj, 5678)
 
-        message_instance = MockMessage("formatted\n")
-        message_instance.record = record_dict
+            record_dict = {
+                "time": datetime(2026, 6, 11, 11, 40, 0),
+                "level": MockLevel(),
+                "message": "traced log message",
+                "name": "disdantic.logging",
+                "function": "test_write",
+                "line": 200,
+                "process": mock_process_obj,
+                "extra": {},
+            }
 
-        stream_target = StringIO()
-        sink_stream = OtelSink(stream_target)
+            class MockMessage(str):
+                record: dict[str, Any]
 
-        mock_trace_lib = MockTrace()
-        with patch("disdantic.logging.opentelemetry_trace", mock_trace_lib):
+            message_instance = MockMessage("formatted\n")
+            message_instance.record = record_dict
+
+            stream_target = StringIO()
+            sink_stream = OtelSink(stream_target)
+
+            mock_trace_lib = MockTrace()
+            with patch("disdantic.logging.opentelemetry_trace", mock_trace_lib):
+                sink_stream.write(message_instance)
+
+            output_data = json.loads(stream_target.getvalue())
+            assert output_data["trace_id"] == format(9988776655, "032x")
+            assert output_data["span_id"] == format(112233, "016x")
+            assert output_data["trace_flags"] == format(2, "02x")
+
+        elif scenario == "otel_exception":
+
+            class MockLevel:
+                name = "ERROR"
+
+            mock_process_obj = MagicMock()
+            set_process_id_helper(mock_process_obj, 9012)
+
+            class MockExceptionInfo:
+                type = RuntimeError
+                value = RuntimeError("unhandled execution failure")
+                traceback = None
+
+            record_dict = {
+                "time": datetime(2026, 6, 11, 11, 50, 0),
+                "level": MockLevel(),
+                "message": "exception payload",
+                "name": "disdantic.logging",
+                "function": "test_write",
+                "line": 250,
+                "process": mock_process_obj,
+                "extra": {},
+                "exception": MockExceptionInfo(),
+            }
+
+            class MockMessage(str):
+                record: dict[str, Any]
+
+            message_instance = MockMessage("formatted\n")
+            message_instance.record = record_dict
+
+            stream_target = StringIO()
+            sink_stream = OtelSink(stream_target)
             sink_stream.write(message_instance)
 
-        output_data = json.loads(stream_target.getvalue())
-        assert output_data["trace_id"] == format(9988776655, "032x")
-        assert output_data["span_id"] == format(112233, "016x")
-        assert output_data["trace_flags"] == format(2, "02x")
+            output_data = json.loads(stream_target.getvalue())
+            assert output_data["attributes"]["exception.type"] == "RuntimeError"
+            assert (
+                output_data["attributes"]["exception.message"]
+                == "unhandled execution failure"
+            )
+            assert "exception.stacktrace" in output_data["attributes"]
 
-    @pytest.mark.regression
-    def test_write_otel_record_with_exception(self) -> None:
-        """Verify exception information is parsed and formatted."""
+        elif scenario == "otel_private_helpers":
 
-        class MockLevel:
-            name = "ERROR"
+            class MockLevel:
+                name = "INFO"
 
-        mock_process_obj = MagicMock()
-        set_process_id_helper(mock_process_obj, 9012)
+            mock_process_obj = MagicMock()
+            set_process_id_helper(mock_process_obj, 7777)
 
-        class MockExceptionInfo:
-            type = RuntimeError
-            value = RuntimeError("unhandled execution failure")
-            traceback = None
+            record_dict = {
+                "time": datetime(2026, 6, 11, 12, 0, 0),
+                "level": MockLevel(),
+                "message": "private helper test",
+                "name": "disdantic",
+                "function": "test_func",
+                "line": 99,
+                "process": mock_process_obj,
+                "extra": {},
+            }
 
-        record_dict = {
-            "time": datetime(2026, 6, 11, 11, 50, 0),
-            "level": MockLevel(),
-            "message": "exception payload",
-            "name": "disdantic.logging",
-            "function": "test_write_otel_record_with_exception",
-            "line": 250,
-            "process": mock_process_obj,
-            "extra": {},
-            "exception": MockExceptionInfo(),
-        }
+            serialized_dict = _otel_serialize(record_dict)
+            assert serialized_dict["body"] == "private helper test"
 
-        class MockMessage(str):
-            record: dict[str, Any]
-
-        message_instance = MockMessage("formatted\n")
-        message_instance.record = record_dict
-
-        stream_target = StringIO()
-        sink_stream = OtelSink(stream_target)
-        sink_stream.write(message_instance)
-
-        output_data = json.loads(stream_target.getvalue())
-        assert output_data["attributes"]["exception.type"] == "RuntimeError"
-        assert (
-            output_data["attributes"]["exception.message"]
-            == "unhandled execution failure"
-        )
-        assert "exception.stacktrace" in output_data["attributes"]
+            formatted_str = _otel_formatter(record_dict)
+            assert "private helper test" in formatted_str
 
     @pytest.mark.regression
     def test_close(self, tmp_path: Path) -> None:
@@ -544,18 +575,39 @@ class TestConfigureLogger:
                     assert actual_filter({"name": None}) is False
 
     @pytest.mark.sanity
-    def test_invalid_otel_missing_dep(self) -> None:
-        """Verify configure_logger throws ImportError when otel is requested
+    def test_invocation_none_settings(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Verify configure_logger works with None settings and uses env settings."""
+        monkeypatch.setenv("DISDANTIC__LOGGING__LEVEL", "INFO")
+        monkeypatch.setenv("DISDANTIC__LOGGING__ENABLED", "true")
+        with patch("disdantic.logging.logger") as mock_loguru:
+            mock_loguru.add.return_value = 999
+            configure_logger(settings=None, clear_loggers=True)
+            mock_loguru.enable.assert_called_once_with("disdantic")
 
-        but not installed.
-        """
-        settings_instance = LoggingSettings(enabled=True, otel_formatting="enable")
+    @pytest.mark.sanity
+    @pytest.mark.parametrize(
+        ("invalid_settings", "expected_exception", "match_msg"),
+        [
+            (
+                LoggingSettings(enabled=True, otel_formatting="enable"),
+                ImportError,
+                "OpenTelemetry is not installed",
+            ),
+        ],
+    )
+    def test_invalid(
+        self,
+        invalid_settings: LoggingSettings,
+        expected_exception: type[Exception],
+        match_msg: str,
+    ) -> None:
+        """Verify configure_logger throws exceptions for invalid settings."""
         with (
             patch("disdantic.logging.opentelemetry_trace", None),
             patch("disdantic.logging.logger"),
-            pytest.raises(ImportError, match="OpenTelemetry is not installed"),
+            pytest.raises(expected_exception, match=match_msg),
         ):
-            configure_logger(settings_instance)
+            configure_logger(invalid_settings)
 
     @pytest.mark.regression
     def test_invocation_cleanup_and_leaks(self) -> None:
@@ -641,202 +693,217 @@ class TestConfigureLogger:
             logger.remove()
             _state["handler_id"] = original_handler_id
 
+    @pytest.mark.regression
+    def test_configure_logger_skips_propagate_handler(self) -> None:
+        """Verify configure_logger skips PropagateHandler when clear_loggers=True."""
 
-@pytest.mark.sanity
-def test_intercept_standard_logging_lifecycle() -> None:
-    """Test attaching and detaching standard logging handlers."""
-    intercept_standard_logging(True)
-    root_logger = logging.getLogger()
-    assert any(
-        isinstance(handler, InterceptHandler) for handler in root_logger.handlers
-    )
+        class PropagateHandler:
+            pass
 
-    intercept_standard_logging(False)
-    assert not any(
-        isinstance(handler, InterceptHandler) for handler in root_logger.handlers
-    )
+        class MockSink:
+            def __init__(self) -> None:
+                self._handler = PropagateHandler()
+
+        class MockHandlerObj:
+            def __init__(self) -> None:
+                self._sink = MockSink()
+
+        # Add the mock handler to the real core handlers
+        mock_handler_id = 99999
+        logger._core.handlers[mock_handler_id] = MockHandlerObj()
+
+        removed_ids = []
+        original_remove = logger.remove
+
+        def mock_remove(handler_id=None):
+            if handler_id is not None:
+                removed_ids.append(handler_id)
+            if handler_id != mock_handler_id:
+                original_remove(handler_id)
+
+        with patch.object(logger, "remove", mock_remove):
+            settings_instance = LoggingSettings(enabled=True, clear_loggers=True)
+            try:
+                configure_logger(settings_instance)
+            finally:
+                logger._core.handlers.pop(mock_handler_id, None)
+
+        assert mock_handler_id not in removed_ids
 
 
-@pytest.mark.regression
-def test_standard_logging_interception_e2e() -> None:
-    """Test standard logging message is correctly intercepted, patched, and printed."""
-    stream = StringIO()
-    original_handler_id = _state["handler_id"]
-    try:
-        configure_logger(
-            LoggingSettings(
-                enabled=True,
-                sink=stream,
-                level="WARNING",
-                filter=False,
-                otel_formatting="disable",
-                enqueue=False,
-                format="{file.name}:{line}:{function} - {message}\n",
-            )
+class TestInterceptStandardLogging:
+    """Integration test suite for intercept_standard_logging."""
+
+    @pytest.mark.smoke
+    @pytest.mark.parametrize("enable", [True, False])
+    def test_invocation(self, enable: bool) -> None:
+        """Verify attaching and detaching standard logging handler lifecycle."""
+        intercept_standard_logging(enable)
+        root_logger = logging.getLogger()
+        has_handler = any(
+            isinstance(handler, InterceptHandler) for handler in root_logger.handlers
         )
-        std_logger = logging.getLogger("test_interception")
-        std_logger.warning("intercepted warning message")
-
-        output = stream.getvalue()
-        assert "intercepted warning message" in output
-        assert "test_logging.py" in output
-        assert "test_standard_logging_interception_e2e" in output
-    finally:
+        assert has_handler is enable
+        # Restore clean state
         intercept_standard_logging(False)
-        logger.remove()
-        _state["handler_id"] = original_handler_id
 
+    @pytest.mark.sanity
+    def test_invalid(self) -> None:
+        """Verify invalid/edge case configurations for standard logging."""
+        # Interception is idempotent and handles inputs cleanly
+        intercept_standard_logging(True)
+        try:
+            root_logger = logging.getLogger()
+            has_handler = any(
+                isinstance(handler, InterceptHandler)
+                for handler in root_logger.handlers
+            )
+            assert has_handler
+        finally:
+            intercept_standard_logging(False)
 
-@pytest.mark.regression
-def test_otel_private_helpers() -> None:
-    """Verify private helpers _otel_serialize and _otel_formatter."""
+    @pytest.mark.regression
+    def test_standard_logging_interception_e2e(self) -> None:
+        """Test standard logging message is intercepted, patched, and printed."""
+        stream = StringIO()
+        original_handler_id = _state["handler_id"]
+        try:
+            configure_logger(
+                LoggingSettings(
+                    enabled=True,
+                    sink=stream,
+                    level="WARNING",
+                    filter=False,
+                    otel_formatting="disable",
+                    enqueue=False,
+                    format="{file.name}:{line}:{function} - {message}\n",
+                )
+            )
+            std_logger = logging.getLogger("test_interception")
+            std_logger.warning("intercepted warning message")
 
-    class MockLevel:
-        name = "INFO"
-
-    mock_process_obj = MagicMock()
-    set_process_id_helper(mock_process_obj, 7777)
-
-    record_dict = {
-        "time": datetime(2026, 6, 11, 12, 0, 0),
-        "level": MockLevel(),
-        "message": "private helper test",
-        "name": "disdantic",
-        "function": "test_func",
-        "line": 99,
-        "process": mock_process_obj,
-        "extra": {},
-    }
-
-    serialized_dict = _otel_serialize(record_dict)
-    assert serialized_dict["body"] == "private helper test"
-
-    formatted_str = _otel_formatter(record_dict)
-    assert "private helper test" in formatted_str
+            output = stream.getvalue()
+            assert "intercepted warning message" in output
+            assert "test_logging.py" in output
+            assert "test_standard_logging_interception_e2e" in output
+        finally:
+            intercept_standard_logging(False)
+            logger.remove()
+            _state["handler_id"] = original_handler_id
 
 
 class TestAutolog:
     """Integration test suite for autolog decorator."""
 
+    @pytest.mark.smoke
+    @pytest.mark.parametrize(
+        "scenario",
+        [
+            "success",
+            "exception_error",
+            "exception_custom_level",
+            "exception_none_level",
+        ],
+    )
+    def test_invocation(self, scenario: str) -> None:
+        """Verify autolog decorator logs inputs, output, and exceptions correctly."""
+        stream = StringIO()
+        original_handler_id = _state["handler_id"]
+        try:
+            configure_logger(
+                LoggingSettings(
+                    enabled=True,
+                    sink=stream,
+                    level="DEBUG",
+                    filter=False,
+                    otel_formatting="disable",
+                    enqueue=False,
+                )
+            )
+
+            if scenario == "success":
+
+                @autolog
+                def sample_func(arg_a: int, arg_b: str) -> str:
+                    return f"{arg_a}-{arg_b}"
+
+                result = sample_func(123, "test")
+                assert result == "123-test"
+
+                output = stream.getvalue()
+                assert "Calling function" in output
+                assert "sample_func" in output
+                assert "returned: 123-test" in output
+
+            elif scenario == "exception_error":
+
+                @autolog
+                def sample_fail() -> None:
+                    raise ValueError("fail message")
+
+                with pytest.raises(ValueError, match="fail message"):
+                    sample_fail()
+
+                output = stream.getvalue()
+                assert "Exception occurred in function" in output
+                assert "sample_fail" in output
+
+            elif scenario == "exception_custom_level":
+
+                @autolog(exception_log_level="WARNING")
+                def sample_fail_warn() -> None:
+                    raise ValueError("custom level message")
+
+                with pytest.raises(ValueError, match="custom level message"):
+                    sample_fail_warn()
+
+                output = stream.getvalue()
+                assert "Exception occurred in function" in output
+                assert "sample_fail_warn" in output
+
+            elif scenario == "exception_none_level":
+
+                @autolog(exception_log_level=None)
+                def sample_fail_none() -> None:
+                    raise ValueError("no log message")
+
+                with pytest.raises(ValueError, match="no log message"):
+                    sample_fail_none()
+
+                output = stream.getvalue()
+                assert "Exception occurred" not in output
+
+        finally:
+            logger.remove()
+            _state["handler_id"] = original_handler_id
+
     @pytest.mark.sanity
-    def test_autolog_success(self) -> None:
-        """Test autolog on a successful function call."""
+    @pytest.mark.parametrize(
+        "invalid_level",
+        [
+            "INVALID_LEVEL",
+        ],
+    )
+    def test_invalid(self, invalid_level: str) -> None:
+        """Verify autolog behavior with invalid exception log level."""
 
-        @autolog
-        def sample_func(arg_a: int, arg_b: str) -> str:
-            return f"{arg_a}-{arg_b}"
-
-        stream = StringIO()
-        original_handler_id = _state["handler_id"]
-        try:
-            configure_logger(
-                LoggingSettings(
-                    enabled=True,
-                    sink=stream,
-                    level="DEBUG",
-                    filter=False,
-                    otel_formatting="disable",
-                    enqueue=False,
-                )
-            )
-            result = sample_func(123, "test")
-            assert result == "123-test"
-
-            output = stream.getvalue()
-            assert "Calling function" in output
-            assert "sample_func" in output
-            assert "returned: 123-test" in output
-        finally:
-            logger.remove()
-            _state["handler_id"] = original_handler_id
-
-    @pytest.mark.regression
-    def test_autolog_exception_error(self) -> None:
-        """Test autolog on a function raising exception with default ERROR level."""
-
-        @autolog
-        def sample_fail() -> None:
-            raise ValueError("fail message")
-
-        stream = StringIO()
-        original_handler_id = _state["handler_id"]
-        try:
-            configure_logger(
-                LoggingSettings(
-                    enabled=True,
-                    sink=stream,
-                    level="DEBUG",
-                    filter=False,
-                    otel_formatting="disable",
-                    enqueue=False,
-                )
-            )
-            with pytest.raises(ValueError, match="fail message"):
-                sample_fail()
-
-            output = stream.getvalue()
-            assert "Exception occurred in function" in output
-            assert "sample_fail" in output
-        finally:
-            logger.remove()
-            _state["handler_id"] = original_handler_id
-
-    @pytest.mark.regression
-    def test_autolog_exception_custom_level(self) -> None:
-        """Test autolog with a custom exception log level like WARNING."""
-
-        @autolog(exception_log_level="WARNING")
+        @autolog(exception_log_level=invalid_level)
         def sample_fail() -> None:
             raise ValueError("custom level message")
 
-        stream = StringIO()
         original_handler_id = _state["handler_id"]
         try:
             configure_logger(
                 LoggingSettings(
                     enabled=True,
-                    sink=stream,
                     level="DEBUG",
                     filter=False,
                     otel_formatting="disable",
                     enqueue=False,
                 )
             )
-            with pytest.raises(ValueError, match="custom level message"):
+            with pytest.raises(ValueError):
                 sample_fail()
-
-            output = stream.getvalue()
-            assert "Exception occurred in function" in output
-        finally:
-            logger.remove()
-            _state["handler_id"] = original_handler_id
-
-    @pytest.mark.regression
-    def test_autolog_exception_none_level(self) -> None:
-        """Test autolog with exception_log_level=None (no exception log)."""
-
-        @autolog(exception_log_level=None)
-        def sample_fail() -> None:
-            raise ValueError("no log message")
-
-        stream = StringIO()
-        original_handler_id = _state["handler_id"]
-        try:
-            configure_logger(
-                LoggingSettings(
-                    enabled=True,
-                    sink=stream,
-                    level="DEBUG",
-                    filter=False,
-                    otel_formatting="disable",
-                    enqueue=False,
-                )
-            )
-            with pytest.raises(ValueError, match="no log message"):
-                sample_fail()
-
-            output = stream.getvalue()
-            assert "Exception occurred" not in output
         finally:
             logger.remove()
             _state["handler_id"] = original_handler_id

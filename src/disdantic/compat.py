@@ -12,14 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Compatibility abstractions for optional dependencies.
+"""Compatibility abstractions for optional dependencies.
 
 This module centralizes fallback logic for safely importing optional dependencies
-like ``opentelemetry``. It provides standardized access points for these modules,
-avoiding scattered ``try-except`` blocks across the codebase. Maintainers should
-import optional dependencies from this module rather than attempting direct
-imports elsewhere.
+like ``opentelemetry`` and ``yaml``. It provides standardized access points for
+these modules, avoiding scattered ``try-except`` blocks across the codebase.
+Maintainers should import optional dependencies from this module rather than
+attempting direct imports elsewhere.
 """
 
 from __future__ import annotations
@@ -37,7 +36,15 @@ try:
 except ImportError:
     _opentelemetry_trace = None
 
-__all__ = ["opentelemetry_trace"]
+_yaml: types.ModuleType | None
+try:
+    import yaml as _yaml_mod  # type: ignore[import-not-found, unused-ignore]
+
+    _yaml = _yaml_mod
+except ImportError:
+    _yaml = None
+
+__all__ = ["opentelemetry_trace", "yaml"]
 
 opentelemetry_trace: Annotated[
     types.ModuleType | None,
@@ -45,3 +52,9 @@ opentelemetry_trace: Annotated[
     "when OpenTelemetry is present. Provides the ``opentelemetry.trace`` module "
     "or ``None``.",
 ] = _opentelemetry_trace
+
+yaml: Annotated[
+    types.ModuleType | None,
+    "Provides YAML serialization capabilities. Used when PyYAML is installed "
+    "to dump and format object configurations, or None if unavailable.",
+] = _yaml

@@ -18,14 +18,14 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Generator
-from typing import Any, Literal, get_type_hints
+from typing import Any, Literal, cast, get_args, get_origin, get_type_hints
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from pytest_mock import MockerFixture
 
 from disdantic.registry import PydanticClassRegistryMixin
-from disdantic.schema import __all__, get_registry_schema
+from disdantic.schema import SchemaFormat, __all__, get_registry_schema
 
 
 class SchemaTestBase(PydanticClassRegistryMixin):
@@ -72,46 +72,69 @@ class TestGetRegistrySchema:
         assert "return" in type_hints
 
     @pytest.mark.smoke
-    @pytest.mark.parametrize(
-        ("format_type", "expected_key"),
-        [
-            ("json", "$defs"),
-            ("openapi", "components"),
-            ("invalid", "$defs"),
-        ],
-    )
-    def test_invocation(
+    def test_invocation_json(
         self,
         mocker: MockerFixture,
         setup_registry: type[SchemaTestBase],
-        format_type: Literal["json", "openapi"],
-        expected_key: str,
     ) -> None:
-        """Verify get_registry_schema with valid inputs and formats."""
+        """Verify get_registry_schema with JSON format."""
         # Setup: Spy on model_rebuild
         rebuild_mock = mocker.spy(setup_registry, "model_rebuild")
 
         # Invoke: Generate the schema
-        schema = get_registry_schema(setup_registry, format=format_type)
+        schema = get_registry_schema(setup_registry, format="json")
 
         # Assert: Validate key traits of the schema structure and rebuild call
         assert isinstance(schema, dict)
-        assert expected_key in schema
+        assert "$defs" in schema
+        assert "SchemaTestChild" in schema["$defs"]
+        assert "discriminator" in schema
+        assert schema["discriminator"]["propertyName"] == "model_type"
         rebuild_mock.assert_called_once_with(force=True)
 
-        if format_type == "openapi":
-            assert "$defs" not in schema
-            assert "schemas" in schema["components"]
-            assert "SchemaTestChild" in schema["components"]["schemas"]
-            # Check ref template translation
-            assert "oneOf" in schema
-            for item in schema["oneOf"]:
-                assert item["$ref"].startswith("#/components/schemas/")
-        else:
-            assert "$defs" in schema
-            assert "SchemaTestChild" in schema["$defs"]
-            assert "discriminator" in schema
-            assert schema["discriminator"]["propertyName"] == "model_type"
+    @pytest.mark.smoke
+    def test_invocation_openapi(
+        self,
+        mocker: MockerFixture,
+        setup_registry: type[SchemaTestBase],
+    ) -> None:
+        """Verify get_registry_schema with OpenAPI format."""
+        # Setup: Spy on model_rebuild
+        rebuild_mock = mocker.spy(setup_registry, "model_rebuild")
+
+        # Invoke: Generate the schema
+        schema = get_registry_schema(setup_registry, format="openapi")
+
+        # Assert: Validate OpenAPI-specific key traits and ref translation
+        assert isinstance(schema, dict)
+        assert "$defs" not in schema
+        assert "components" in schema
+        assert "schemas" in schema["components"]
+        assert "SchemaTestChild" in schema["components"]["schemas"]
+        # Check ref template translation
+        assert "oneOf" in schema
+        for item in schema["oneOf"]:
+            assert item["$ref"].startswith("#/components/schemas/")
+        rebuild_mock.assert_called_once_with(force=True)
+
+    @pytest.mark.sanity
+    def test_invocation_invalid_format(
+        self,
+        mocker: MockerFixture,
+        setup_registry: type[SchemaTestBase],
+    ) -> None:
+        """Verify get_registry_schema fallback behavior on unsupported formats."""
+        # Setup: Spy on model_rebuild
+        rebuild_mock = mocker.spy(setup_registry, "model_rebuild")
+
+        # Invoke: Generate the schema with cast to test un-typed string behavior
+        schema = get_registry_schema(setup_registry, format=cast("Any", "invalid"))
+
+        # Assert: Validate fallback behavior to standard json format
+        assert isinstance(schema, dict)
+        assert "$defs" in schema
+        assert "SchemaTestChild" in schema["$defs"]
+        rebuild_mock.assert_called_once_with(force=True)
 
     @pytest.mark.sanity
     @pytest.mark.parametrize(
@@ -124,18 +147,119 @@ class TestGetRegistrySchema:
             (SchemaTestChild(value=42), "SchemaTestChild"),
         ],
     )
-    def test_invalid(
+    def test_invalid_registry_class(
         self,
         invalid_class: Any,
         expected_type_name: str,
     ) -> None:
-        """Verify TypeError is raised for invalid classes."""
+        """Verify TypeError is raised for invalid registry classes."""
         expected_message = (
             "Expected a subclass of PydanticClassRegistryMixin, "
             f"got {expected_type_name}"
         )
         with pytest.raises(TypeError, match=expected_message):
             get_registry_schema(invalid_class)
+
+    @pytest.mark.regression
+    def test_empty_registry(self) -> None:
+        """Verify get_registry_schema behaves correctly for empty registries."""
+
+        # Setup: Define an empty test registry class
+        class EmptyTestRegistry(PydanticClassRegistryMixin):
+            model_type: str
+
+        # Invoke: Generate the schema
+        schema = get_registry_schema(EmptyTestRegistry)
+
+        # Assert: Schema compiles successfully without unions
+        assert isinstance(schema, dict)
+        assert "oneOf" not in schema
+
+    @pytest.mark.regression
+    def test_custom_discriminator(self) -> None:
+        """Verify get_registry_schema respects custom schema discriminator overrides."""
+
+        # Setup: Define registry and child subclass with custom discriminator
+        class CustomBase(PydanticClassRegistryMixin):
+            schema_discriminator = "custom_type"
+            custom_type: str
+
+        @CustomBase.register("custom_child")
+        class CustomChild(CustomBase):
+            custom_type: Literal["custom_child"] = "custom_child"
+            info: str
+
+        # Invoke: Generate the schema
+        schema = get_registry_schema(CustomBase)
+
+        # Assert: Discriminator matches CustomBase.schema_discriminator
+        assert isinstance(schema, dict)
+        assert "discriminator" in schema
+        assert schema["discriminator"]["propertyName"] == "custom_type"
+
+        # Teardown: Clean up registry
+        CustomBase.clear_registry()
+
+    @pytest.mark.regression
+    def test_multiple_subclasses(self) -> None:
+        """Verify get_registry_schema manages registries with multiple subclasses."""
+
+        # Setup: Define base registry and register multiple subclasses
+        class MultiBase(PydanticClassRegistryMixin):
+            model_type: str
+
+        @MultiBase.register("child_one")
+        class ChildOne(MultiBase):
+            model_type: Literal["child_one"] = "child_one"
+            field_one: int
+
+        @MultiBase.register("child_two")
+        class ChildTwo(MultiBase):
+            model_type: Literal["child_two"] = "child_two"
+            field_two: str
+
+        # Invoke: Generate the schema
+        schema = get_registry_schema(MultiBase)
+
+        # Assert: Both subclasses are in defs and referenced in oneOf
+        assert isinstance(schema, dict)
+        assert "$defs" in schema
+        assert "ChildOne" in schema["$defs"]
+        assert "ChildTwo" in schema["$defs"]
+        assert "oneOf" in schema
+        assert len(schema["oneOf"]) == 2
+
+        # Teardown: Clean up registry
+        MultiBase.clear_registry()
+
+
+@pytest.mark.smoke
+def test_schema_format() -> None:
+    """Verify metadata and value options of SchemaFormat type annotation."""
+    # Retrieve metadata of SchemaFormat
+    origin = get_origin(SchemaFormat)
+    args = get_args(SchemaFormat)
+
+    # SchemaFormat should be Annotated
+    assert origin is not None
+
+    # Retrieve underlying type args (Annotated wraps the first arg, then metadata)
+    assert len(args) >= 2
+    literal_type = args[0]
+    assert get_origin(literal_type) is Literal
+    assert set(get_args(literal_type)) == {"json", "openapi"}
+
+    # Assert description details
+    description = args[1]
+    assert isinstance(description, str)
+    assert "Supported schema export formats" in description
+
+    # Assert validation behavior using TypeAdapter
+    adapter = TypeAdapter(SchemaFormat)
+    assert adapter.validate_python("json") == "json"
+    assert adapter.validate_python("openapi") == "openapi"
+    with pytest.raises(ValidationError):
+        adapter.validate_python("unsupported_format")
 
 
 @pytest.mark.smoke

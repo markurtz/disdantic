@@ -20,13 +20,23 @@ import sys
 import threading
 import time
 import types
+from collections.abc import Callable
 from typing import Any
 from unittest.mock import patch
 
 import pytest
 from pydantic import BaseModel
 
+from disdantic import loading
 from disdantic.loading import LazyLoader, LazyProxy
+
+
+@pytest.mark.smoke
+def test_all_parameter() -> None:
+    """Validate __all__ configuration parameter for public module exports."""
+    assert hasattr(loading, "__all__")
+    assert isinstance(loading.__all__, list)
+    assert set(loading.__all__) == {"LazyLoader", "LazyProxy"}
 
 
 class TestLazyProxy:
@@ -82,7 +92,7 @@ class TestLazyProxy:
             LazyProxy()  # type: ignore
 
     @pytest.mark.sanity
-    def test_getattr(self) -> None:
+    def test___getattr__(self) -> None:
         """Verify accessing an attribute triggers resolution and returns it."""
         proxy_instance = LazyProxy(lambda: {"status": "success", "code": 200})
         assert proxy_instance._wrapped is None
@@ -91,7 +101,7 @@ class TestLazyProxy:
         assert proxy_instance.get("code") == 200
 
     @pytest.mark.sanity
-    def test_dir(self) -> None:
+    def test___dir__(self) -> None:
         """Verify dir() lists attributes of the resolved object."""
         proxy_instance = LazyProxy(lambda: {"status": "success"})
         assert proxy_instance._wrapped is None
@@ -101,7 +111,7 @@ class TestLazyProxy:
         assert proxy_instance._wrapped == {"status": "success"}
 
     @pytest.mark.sanity
-    def test_repr(self) -> None:
+    def test___repr__(self) -> None:
         """Verify string representations before and after resolution."""
 
         def factory_function() -> dict[str, str]:
@@ -136,7 +146,7 @@ class TestLazyProxy:
             # Retrieve attribute to trigger resolution
             results.append(proxy_instance.status)
 
-        threads_list = [threading.Thread(target=target_thread) for _idx in range(10)]
+        threads_list = [threading.Thread(target=target_thread) for index in range(10)]
         for thread_item in threads_list:
             thread_item.start()
         for thread_item in threads_list:
@@ -174,6 +184,15 @@ class TestLazyProxy:
 class TestLazyLoader:
     """Integration test suite for LazyLoader class."""
 
+    @pytest.fixture(
+        params=[
+            "lazy_loader_class",
+        ]
+    )
+    def valid_instances(self, request: pytest.FixtureRequest) -> type[LazyLoader]:
+        """Fixture supplying variations of LazyLoader or configurations."""
+        return LazyLoader
+
     @pytest.mark.smoke
     def test_interface_signature_validation(self) -> None:
         """Validate class structural contracts across integrated boundaries."""
@@ -182,6 +201,45 @@ class TestLazyLoader:
         assert hasattr(LazyLoader, "class_attributes")
         assert hasattr(LazyLoader, "definition")
         assert hasattr(LazyLoader, "load_module_proxy")
+
+        module_sig = inspect.signature(LazyLoader.module)
+        assert "module_name" in module_sig.parameters
+
+        class_attribs_sig = inspect.signature(LazyLoader.class_attributes)
+        assert "mapping" in class_attribs_sig.parameters
+
+        definition_sig = inspect.signature(LazyLoader.definition)
+        assert "factory" in definition_sig.parameters
+
+        load_proxy_sig = inspect.signature(LazyLoader.load_module_proxy)
+        assert "fullname" in load_proxy_sig.parameters
+
+    @pytest.mark.smoke
+    def test_initialization(self, valid_instances: type[LazyLoader]) -> None:
+        """Verify LazyLoader initialization interface and internal class lock."""
+        assert valid_instances is LazyLoader
+        assert hasattr(valid_instances, "_global_lock")
+        assert isinstance(valid_instances._global_lock, type(threading.Lock()))
+
+    @pytest.mark.sanity
+    def test_invalid_initialization_values(self) -> None:
+        """Verify decorator calls with invalid mapping values raise errors."""
+
+        # Non-string and non-callable values should raise TypeError
+        # upon attribute access.
+        @LazyLoader.class_attributes({"sys_module": 12345})  # type: ignore
+        class InvalidClass:
+            sys_module: Any
+
+        invalid_instance = InvalidClass()
+        with pytest.raises(TypeError):
+            _unused = invalid_instance.sys_module
+
+    @pytest.mark.sanity
+    def test_invalid_initialization_missing(self) -> None:
+        """Verify class_attributes decorator raises error when mapping is missing."""
+        with pytest.raises(TypeError):
+            LazyLoader.class_attributes()  # type: ignore
 
     @pytest.mark.sanity
     def test_definition(self) -> None:
@@ -237,11 +295,7 @@ class TestLazyLoader:
 
     @pytest.mark.regression
     def test_class_attributes(self) -> None:
-        """Verify binding descriptor mapping to class attributes on access.
-
-        Ensures descriptors resolve correctly on both standard classes and
-        Pydantic models.
-        """
+        """Verify binding descriptor mapping to class attributes on access."""
         call_count = 0
 
         def my_factory() -> dict[str, str]:
@@ -268,20 +322,6 @@ class TestLazyLoader:
         # Subsequent access does not re-invoke factory
         assert container_instance.lazy_val == {"status": "resolved"}
         assert call_count == 1
-
-        # Test compatibility with Pydantic BaseModel integration
-        @LazyLoader.class_attributes(
-            {
-                "sys_module": "sys",
-            }
-        )
-        class ContainerBaseModel(BaseModel):
-            regular_field: str
-
-        model_instance = ContainerBaseModel(regular_field="value")
-        model_any: Any = model_instance
-        assert model_any.sys_module is sys
-        assert model_instance.model_dump() == {"regular_field": "value"}
 
     @pytest.mark.regression
     def test_load_module_proxy(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -319,3 +359,65 @@ class TestLazyLoader:
         """
         with pytest.raises(ModuleNotFoundError):
             LazyLoader.load_module_proxy("non_existent_module_xyz")
+
+    @pytest.mark.regression
+    def test_marshalling(self) -> None:
+        """Verify both model_dump and model_validate pipelines with lazy attributes.
+
+        This checks compatibility on Pydantic models.
+        """
+
+        @LazyLoader.class_attributes(
+            {
+                "sys_module": "sys",
+            }
+        )
+        class ContainerBaseModel(BaseModel):
+            regular_field: str
+
+        model_instance = ContainerBaseModel(regular_field="value")
+        model_any: Any = model_instance
+        assert model_any.sys_module is sys
+
+        # Test serialization (model_dump)
+        assert model_instance.model_dump() == {"regular_field": "value"}
+
+        # Test deserialization/validation (model_validate)
+        validated_instance = ContainerBaseModel.model_validate(
+            {"regular_field": "another_value"}
+        )
+        validated_any: Any = validated_instance
+        assert validated_instance.regular_field == "another_value"
+        assert validated_any.sys_module is sys
+
+    @pytest.mark.regression
+    def test_registry_factory_integration(self) -> None:
+        """Verify registered component keys resolve and construct correctly.
+
+        This tests resolving through the lazy proxy boundary.
+        """
+        registry_map: dict[str, Callable[[], Any]] = {
+            "mysql_database": lambda: types.SimpleNamespace(db_type="mysql", port=3306),
+            "postgres_database": lambda: types.SimpleNamespace(
+                db_type="postgres", port=5432
+            ),
+        }
+
+        lazy_mysql = LazyLoader.definition(registry_map["mysql_database"])
+        lazy_postgres = LazyLoader.definition(registry_map["postgres_database"])
+
+        # Assert no resolution has occurred yet
+        assert lazy_mysql._wrapped is None
+        assert lazy_postgres._wrapped is None
+
+        # Access attributes to resolve and verify integration
+        assert lazy_mysql.db_type == "mysql"
+        assert lazy_mysql.port == 3306
+        assert lazy_postgres.db_type == "postgres"
+        assert lazy_postgres.port == 5432
+
+        # Assert that they are now cached/resolved
+        assert lazy_mysql._wrapped.db_type == "mysql"
+        assert lazy_mysql._wrapped.port == 3306
+        assert lazy_postgres._wrapped.db_type == "postgres"
+        assert lazy_postgres._wrapped.port == 5432

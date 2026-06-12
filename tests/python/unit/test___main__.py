@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import inspect
 import json
+import runpy
+import sys
 from pathlib import Path
 from unittest import mock
 
@@ -94,6 +96,21 @@ class TestMainCallback:
         config_logger_mock.assert_called_once()
         settings_mock.assert_called_once()
         logger_mock.info.assert_called()
+
+    @pytest.mark.smoke
+    def test_invocation_subcommand_not_none(self, mocker: MockerFixture) -> None:
+        """Verify that passing version=False but with subcommand does not log hello."""
+        config_logger_mock = mocker.patch("disdantic.__main__.configure_logger")
+        settings_mock = mocker.patch("disdantic.__main__.Settings")
+        logger_mock = mocker.patch("disdantic.__main__.logger")
+        context_mock = mocker.MagicMock()
+        context_mock.invoked_subcommand = "diagnose"
+
+        main_callback(ctx=context_mock, version=False)
+
+        config_logger_mock.assert_called_once()
+        settings_mock.assert_called_once()
+        logger_mock.info.assert_not_called()
 
 
 class TestDiagnose:
@@ -329,6 +346,47 @@ class TestDiagnose:
         assert "Failed to import my_pkg.broken_module" in captured.out
         assert "Detail: Invalid field definition" in captured.out
 
+    @pytest.mark.sanity
+    def test_invocation_unhealthy_rendering_no_error_detail(
+        self, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Verify diagnose rendering when compilation fails with no detail."""
+        report = DiagnosticsReport(
+            is_healthy=False,
+            scanned_packages=["my_pkg"],
+            registries=[
+                RegistryDiagnostics(
+                    registry_name="MyRegistry",
+                    discriminator_key="type",
+                    auto_discovery_enabled=True,
+                    models=[
+                        RegistryModelInfo(
+                            key="text",
+                            class_name="TextMessage",
+                            module_path="my_pkg.models",
+                            compilation_status="error",
+                            error_detail=None,
+                        )
+                    ],
+                    orphans=[],
+                )
+            ],
+            import_errors=[],
+        )
+
+        mocker.patch("disdantic.__main__.verify_registries", return_value=report)
+        mocker.patch("disdantic.__main__.reset_settings")
+
+        with pytest.raises(typer.Exit) as exit_info:
+            diagnose(path=None, json_output=False)
+
+        assert exit_info.value.exit_code == 1
+
+        captured = capsys.readouterr()
+        assert "Registries diagnosis failed" in captured.out
+        assert "TextMessage" in captured.out
+        assert "Detail:" not in captured.out
+
 
 class TestSchema:
     """Test suite for the schema command."""
@@ -554,6 +612,41 @@ class TestSchema:
             err=True,
         )
 
+    @pytest.mark.sanity
+    def test_sys_path_insertion(
+        self, mock_schema_deps: dict[str, mock.MagicMock], mocker: MockerFixture
+    ) -> None:
+        """Verify that CWD is inserted into sys.path if not already present."""
+        unique_path = "/unique/path/not/in/sys/path"
+        mocker.patch("pathlib.Path.cwd", return_value=Path(unique_path))
+
+        # Ensure it is not in sys.path
+        if unique_path in sys.path:
+            sys.path.remove(unique_path)
+
+        mock_module = mock.MagicMock()
+
+        class DummyRegistry(PydanticClassRegistryMixin):
+            model_type: str
+
+        mock_module.DummyRegistry = DummyRegistry
+        mock_schema_deps["importlib"].import_module.return_value = mock_module
+        mock_schema_deps["get_registry_schema"].return_value = {
+            "schema_key": "schema_value"
+        }
+
+        original_sys_path = list(sys.path)
+        try:
+            schema(
+                registry_path="mock_module.DummyRegistry",
+                output=None,
+                schema_format="json",
+                indent=2,
+            )
+            assert sys.path[0] == unique_path
+        finally:
+            sys.path = original_sys_path
+
 
 class TestListCmd:
     """Test suite for the list_cmd command."""
@@ -646,3 +739,20 @@ def test_app() -> None:
 def test___all__() -> None:
     """Verify that the module exports expected symbols in __all__."""
     assert set(__all__) == {"main"}
+
+
+class TestModuleExecution:
+    """Test suite for direct module execution."""
+
+    @pytest.mark.smoke
+    @pytest.mark.filterwarnings(
+        "ignore:.*found in sys.modules after import:RuntimeWarning"
+    )
+    def test_main_execution_block(self, mocker: MockerFixture) -> None:
+        """Verify disdantic.__main__.main is called when run as __main__."""
+        mocker.patch("sys.argv", ["disdantic", "--version"])
+
+        with pytest.raises(SystemExit) as exit_info:
+            runpy.run_module("disdantic.__main__", run_name="__main__")
+
+        assert exit_info.value.code == 0

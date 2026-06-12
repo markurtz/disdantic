@@ -44,6 +44,7 @@ dependencies = [
 
 [project.optional-dependencies]
 opentelemetry = ["opentelemetry-api>=1.0.0", "opentelemetry-sdk>=1.0.0"]
+yaml = ["pyyaml>=6.0.1"]
 
 [dependency-groups]
 test = [
@@ -123,6 +124,8 @@ output_strategies = { type = "regex", pattern = '''(?m)^(\s*ARG\s+VERSION\s*=\s*
 
 [tool.hatch.envs.default]
 dependency-groups = ["dev"]
+installer = "uv"
+
 
 [tool.hatch.envs.default.env-vars]
 COVERAGE_CORE = "pytrace"
@@ -236,6 +239,10 @@ docs-serve = ["hatch run docs {args}", "hatch run project:docs-serve {args}"]
 [tool.hatch.envs.python]
 template = "default"
 builder = true
+
+[[tool.hatch.envs.python.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
 
 [tool.hatch.envs.python.scripts]
 lint = [

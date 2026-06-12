@@ -178,11 +178,11 @@ class Settings(BaseSettings):
 
         return (
             init_settings,
+            env_settings,
+            dotenv_settings,
             PyprojectTomlConfigSettingsSource(
                 settings_cls, toml_file=project_root / "pyproject.toml"
             ),
-            dotenv_settings,
-            env_settings,
             CliSettingsSource(
                 settings_cls,
                 cli_ignore_unknown_args=True,

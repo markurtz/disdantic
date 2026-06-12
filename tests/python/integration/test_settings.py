@@ -49,7 +49,7 @@ class MockSettingsSource(PydanticBaseSettingsSource):
 
 
 @pytest.mark.smoke
-def test_settings_exports() -> None:
+def test_all_export() -> None:
     """Validate public variables, constants, and module-level exports."""
     assert hasattr(settings_module, "__all__")
     expected_exports = ["Settings", "get_settings", "reset_settings"]
@@ -91,7 +91,8 @@ class TestCLIEntrypoint:
         assert result.exit_code != 0
 
     @pytest.mark.regression
-    def test_settings_propagation(self) -> None:
+    @pytest.mark.parametrize("env_name", ["staging", "production"])
+    def test_settings_propagation(self, env_name: str) -> None:
         """Test CLI arguments settings propagation."""
         runner = CliRunner()
         instances: list[Settings] = []
@@ -102,13 +103,13 @@ class TestCLIEntrypoint:
             return instance
 
         original_argv = sys.argv
-        sys.argv = ["disdantic", "--disdantic_.environment", "staging"]
+        sys.argv = ["disdantic", "--disdantic_.environment", env_name]
         try:
             with patch("disdantic.__main__.Settings", new=wrap_settings):
                 result = runner.invoke(app, [])
                 assert result.exit_code == 0
                 assert len(instances) == 1
-                assert instances[0].environment == "staging"
+                assert instances[0].environment == env_name
         finally:
             sys.argv = original_argv
 
@@ -211,9 +212,9 @@ class TestSettings:
         )
         assert len(sources) == 5
         assert sources[0] is mock_source
-        assert isinstance(sources[1], PyprojectTomlConfigSettingsSource)
+        assert sources[1] is mock_source
         assert sources[2] is mock_source
-        assert sources[3] is mock_source
+        assert isinstance(sources[3], PyprojectTomlConfigSettingsSource)
         assert isinstance(sources[4], CliSettingsSource)
 
     @pytest.mark.smoke
@@ -244,12 +245,70 @@ class TestGetSettings:
     """Integration test suite for the get_settings global function."""
 
     @pytest.mark.sanity
-    def test_invocation(self) -> None:
-        """Verify get_settings returns singleton instances."""
+    @pytest.mark.parametrize(
+        ("env_var", "env_value", "expected_val"),
+        [
+            ("DISDANTIC__ENVIRONMENT", "staging", "staging"),
+            ("DISDANTIC__ENVIRONMENT", "production", "production"),
+            ("DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR", "custom_key", "custom_key"),
+        ],
+    )
+    def test_invocation(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        env_var: str,
+        env_value: str,
+        expected_val: str,
+    ) -> None:
+        """Verify get_settings returns correctly configured singleton instances."""
+        # Setup
         reset_settings()
+        monkeypatch.setenv(env_var, env_value)
+
+        # Invoke
         settings_one = get_settings()
         settings_two = get_settings()
+
+        # Assertions
         assert settings_one is settings_two
+        if env_var == "DISDANTIC__ENVIRONMENT":
+            assert settings_one.environment == expected_val
+        elif env_var == "DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR":
+            assert settings_one.default_schema_discriminator == expected_val
+
+        # Teardown
+        reset_settings()
+
+    @pytest.mark.sanity
+    @pytest.mark.parametrize(
+        ("env_var", "invalid_value"),
+        [
+            ("DISDANTIC__ENVIRONMENT", "invalid_env_name"),
+            ("DISDANTIC__REGISTRY_AUTO_DISCOVERY", "not_a_bool"),
+            ("DISDANTIC__ENABLE_SCHEMA_REBUILDING", "not_a_bool"),
+        ],
+    )
+    def test_invalid(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        env_var: str,
+        invalid_value: str,
+    ) -> None:
+        """Verify that invalid environment configuration raises ValidationError.
+
+        This check ensures get_settings validation holds on invalid env
+        parameters.
+        """
+        # Setup
+        reset_settings()
+        monkeypatch.setenv(env_var, invalid_value)
+
+        # Invoke and Assert
+        with pytest.raises(ValidationError):
+            get_settings()
+
+        # Teardown
+        reset_settings()
 
     @pytest.mark.regression
     def test_thread_safety(self) -> None:
@@ -280,10 +339,53 @@ class TestResetSettings:
     """Integration test suite for the reset_settings global function."""
 
     @pytest.mark.sanity
-    def test_invocation(self) -> None:
-        """Verify reset_settings clears the singleton."""
+    @pytest.mark.parametrize(
+        ("env_var", "env_value"),
+        [
+            ("DISDANTIC__ENVIRONMENT", "staging"),
+            ("DISDANTIC__ENVIRONMENT", "production"),
+        ],
+    )
+    def test_invocation(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        env_var: str,
+        env_value: str,
+    ) -> None:
+        """Verify reset_settings clears the singleton and forces a reload."""
+        # Setup
         reset_settings()
         settings_one = get_settings()
+
+        # Invoke (with modified environment)
         reset_settings()
+        monkeypatch.setenv(env_var, env_value)
         settings_two = get_settings()
+
+        # Assertions
         assert settings_one is not settings_two
+        assert settings_two.environment == env_value
+
+        # Teardown
+        reset_settings()
+
+    @pytest.mark.sanity
+    @pytest.mark.parametrize("repeat_count", [1, 2, 5])
+    def test_invalid(self, repeat_count: int) -> None:
+        """Verify reset_settings behaves gracefully.
+
+        Ensures reset_settings is idempotent under repeated calls.
+        """
+        # Setup
+        reset_settings()
+
+        # Invoke repeated resets
+        for _unused_index in range(repeat_count):
+            reset_settings()
+
+        # Verify get_settings still works and constructs a fresh default instance
+        settings_instance = get_settings()
+        assert settings_instance.environment == "development"
+
+        # Teardown
+        reset_settings()
