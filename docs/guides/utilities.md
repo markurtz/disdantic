@@ -173,8 +173,8 @@ configure_logger(
 
 Settings resolve variables across the following priority ladder:
 
-1. **Constructor arguments** (e.g. `Settings(environment="production")`)
-1. **Environment variables** prefixed with `DISDANTIC__` (e.g. `DISDANTIC__ENVIRONMENT="staging"`)
+1. **Constructor arguments** (e.g. `Settings(default_schema_discriminator="custom_type")`)
+1. **Environment variables** prefixed with `DISDANTIC__` (e.g. `DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR="custom_type"`)
 1. **Dotenv files** (`.env`)
 1. **`pyproject.toml`** config table (under `[tool.disdantic]`)
 1. **CLI arguments** (prefixed with `disdantic_`)

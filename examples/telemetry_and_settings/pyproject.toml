@@ -22,7 +22,6 @@ dependencies = [
 ]
 
 [tool.disdantic]
-environment = "development"
 default_schema_discriminator = "custom_type"
 registry_auto_discovery = false
 enable_schema_rebuilding = true

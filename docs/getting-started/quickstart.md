@@ -81,7 +81,7 @@ payload = {
     "room_name": "General Chat",
     "messages": [
         {"msg_type": "text", "content": "Hello world!"},
-        {"msg_type": "image", "url": "https://example.com/logo.png", "caption": "Logo"}
+        {"msg_type": "image", "url": "https://placehold.co/150.png", "caption": "Logo"}
     ]
 }
 

@@ -17,6 +17,8 @@
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 
 import pytest
 
@@ -37,8 +39,16 @@ class TestExTelemetrySettings:
     @pytest.mark.regression
     def test_example_execution_flow(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Verify the example runs successfully and outputs valid logs."""
-        # Execute the main example workflow
-        main()
+        orig_cwd = Path.cwd()
+        orig_env = dict(os.environ)
+
+        try:
+            # Execute the main example workflow
+            main()
+        finally:
+            os.chdir(orig_cwd)
+            os.environ.clear()
+            os.environ.update(orig_env)
 
         # Capture standard output and error stream outputs
         captured = capsys.readouterr()
@@ -46,11 +56,10 @@ class TestExTelemetrySettings:
         stderr_lines = captured.err.strip().splitlines()
 
         # Assert correct stdout contents showing settings precedence
-        assert "Loaded Settings Environment: staging" in stdout_lines
         assert "Loaded Discriminator from TOML: custom_type" in stdout_lines
         assert "Registry resolved discriminator key: custom_type" in stdout_lines
         assert "Successfully validated task type: EmailTask" in stdout_lines
-        assert "Overridden Settings Environment: production" in stdout_lines
+        assert "Overridden Discriminator: constructor_discriminator" in stdout_lines
 
         # Assert correct structured OpenTelemetry JSON log output in standard error
         assert len(stderr_lines) > 0

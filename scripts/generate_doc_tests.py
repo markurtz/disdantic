@@ -7,6 +7,7 @@ them into executable pytest files. It helps automate code snippet verification i
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
@@ -200,8 +201,14 @@ def pytest_sessionfinish(session, exitstatus):
             )
             if out_file.exists():
                 code = out_file.read_text(encoding="utf-8")
-                new_code = f"from __future__ import annotations\n{code}"
-                out_file.write_text(new_code, encoding="utf-8")
+
+                if not re.search(
+                    r"^\s*from\s+__future__\s+import\s+annotations\b",
+                    code,
+                    re.MULTILINE,
+                ):
+                    new_code = f"from __future__ import annotations\n{code}"
+                    out_file.write_text(new_code, encoding="utf-8")
         except (subprocess.CalledProcessError, FileNotFoundError) as error:
             logger.error("Error generating tests for {}: {}", markdown_file, error)
             failed = True

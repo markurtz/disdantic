@@ -30,7 +30,7 @@ from disdantic.registry import PydanticClassRegistryMixin
 __all__ = ["BaseMessage", "ChatSession", "ImageMessage", "TextMessage"]
 
 
-class BaseMessage(PydanticClassRegistryMixin, ReloadableBaseModel):
+class BaseMessage(PydanticClassRegistryMixin):
     """Polymorphic base message class.
 
     All messaging subclasses register with this class to enable

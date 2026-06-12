@@ -30,7 +30,6 @@ from pathlib import Path
 from typing import Literal
 
 from disdantic.logging import LoggingSettings, autolog, configure_logger, logger
-from disdantic.model import ReloadableBaseModel
 from disdantic.registry import PydanticClassRegistryMixin
 from disdantic.settings import Settings, get_settings, reset_settings
 
@@ -38,7 +37,7 @@ __all__ = ["BaseTask", "EmailTask", "SMSTask", "main", "process_data"]
 
 
 # 1. Define a Polymorphic Registry that falls back to settings.
-class BaseTask(PydanticClassRegistryMixin, ReloadableBaseModel):
+class BaseTask(PydanticClassRegistryMixin):
     """Base polymorphic task model.
 
     This class does not define a class-level 'schema_discriminator' attribute.
@@ -77,19 +76,6 @@ def process_data(value: int) -> int:
     return value * 2
 
 
-def load_dotenv(env_path: Path) -> None:
-    """Load variables from a .env file into os.environ.
-
-    This is used to simulate environment-based priority configurations.
-    """
-    if env_path.exists():
-        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-            line = raw_line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, val = line.split("=", 1)
-                os.environ[key.strip()] = val.strip()
-
-
 def main() -> None:
     """Execute the settings resolution and logging telemetry workflow."""
     # Isolate project root to this directory to load the local pyproject.toml
@@ -97,17 +83,13 @@ def main() -> None:
     os.chdir(example_root)
     os.environ["DISDANTIC__PROJECT_ROOT"] = str(example_root)
 
-    # Load local dotenv variables to simulate environment variable overrides
-    load_dotenv(example_root / ".env")
-
     # 1. Reset settings to force a fresh load of our isolated project config
     reset_settings()
 
     # 2. Verify settings resolution pathways (US-12)
-    # default context should load DISDANTIC__ENVIRONMENT=staging from the local .env
-    # and default_schema_discriminator=custom_type from pyproject.toml
+    # default context should load default_schema_discriminator=custom_type
+    # from pyproject.toml
     settings = get_settings()
-    print(f"Loaded Settings Environment: {settings.environment}")
     print(f"Loaded Discriminator from TOML: {settings.default_schema_discriminator}")
 
     # Rebuild BaseTask schema so it picks up the newly loaded settings discriminator key
@@ -127,8 +109,10 @@ def main() -> None:
     print(f"Successfully validated task type: {type(validated_task).__name__}")
 
     # Verify constructor override has highest priority
-    override_settings = Settings(environment="production")
-    print(f"Overridden Settings Environment: {override_settings.environment}")
+    override_settings = Settings(
+        default_schema_discriminator="constructor_discriminator"
+    )
+    print(f"Overridden Discriminator: {override_settings.default_schema_discriminator}")
 
     # 3. Configure structured logging with OpenTelemetry formatting
     logging_config = LoggingSettings(

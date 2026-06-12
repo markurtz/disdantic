@@ -20,7 +20,7 @@ Before running the example, ensure you have set up the project environment.
 1. Navigate to the project root:
 
    ```bash
-   cd /Users/markkurtz/code/github/markurtz/disdantic
+   cd /path/to/disdantic
    ```
 
 ## Execution Blueprint
@@ -42,11 +42,10 @@ hatch run python examples/telemetry_and_settings/main.py
 When executed, the script outputs setting values to standard output and OpenTelemetry-compliant JSON logs to standard error:
 
 ```json
-Loaded Settings Environment: staging
 Loaded Discriminator from TOML: custom_type
 Registry resolved discriminator key: custom_type
 Successfully validated task type: EmailTask
-Overridden Settings Environment: production
+Overridden Discriminator: constructor_discriminator
 {"timestamp": "2026-06-12T12:34:33.069523-04:00", "severity_text": "INFO", "body": "Starting calculation cycle...", "resource": {"service.name": "disdantic"}, "attributes": {"module": "__main__", "function": "main", "line": 144, "process_id": 10936}}
 {"timestamp": "2026-06-12T12:34:33.069680-04:00", "severity_text": "DEBUG", "body": "Calling function 'process_data' with args=(10,), kwargs={}", "resource": {"service.name": "disdantic"}, "attributes": {"module": "disdantic.logging", "function": "wrapper", "line": 327, "process_id": 10936}}
 {"timestamp": "2026-06-12T12:34:33.069740-04:00", "severity_text": "DEBUG", "body": "Function 'process_data' returned: 20", "resource": {"service.name": "disdantic"}, "attributes": {"module": "disdantic.logging", "function": "wrapper", "line": 344, "process_id": 10936}}
@@ -59,5 +58,5 @@ Overridden Settings Environment: production
 ## Troubleshooting
 
 - **Configuration not loaded from `pyproject.toml`**: Ensure that the tool options block is prefixed with `[tool.disdantic]`. The setting resolver looks strictly for this table header.
-- **`.env` variables not overriding `pyproject.toml`**: Precedence is strict. Ensure environment variable names are prefixed with `DISDANTIC__` (e.g. `DISDANTIC__ENVIRONMENT=staging`).
+- **Environment variables not overriding `pyproject.toml`**: Precedence is strict. Ensure environment variable names are prefixed with `DISDANTIC__` (e.g. `DISDANTIC__DEFAULT_SCHEMA_DISCRIMINATOR=custom_type`).
 - **Telemetry logs not showing up**: OpenTelemetry formatting requires the optional `opentelemetry-api` package to be installed. If not installed and `otel_formatting="enable"` is set, an `ImportError` is raised.

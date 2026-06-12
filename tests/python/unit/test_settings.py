@@ -49,8 +49,11 @@ class TestSettings:
     @pytest.fixture(
         params=[
             {},
-            {"environment": "production"},
-            {"environment": "staging", "project_root": Path("/test/root")},
+            {"default_schema_discriminator": "custom_type"},
+            {
+                "default_schema_discriminator": "another_type",
+                "project_root": Path("/test/root"),
+            },
         ]
     )
     def valid_instances(self, request: pytest.FixtureRequest) -> Settings:
@@ -71,7 +74,6 @@ class TestSettings:
 
         fields = Settings.model_fields
         assert "project_root" in fields
-        assert "environment" in fields
         assert "default_schema_discriminator" in fields
         assert "registry_auto_discovery" in fields
         assert "auto_packages" in fields
@@ -83,7 +85,7 @@ class TestSettings:
     @pytest.mark.sanity
     def test_initialization(self, valid_instances: Settings) -> None:
         """Test proper initialization from the fixture."""
-        assert valid_instances.environment in {"development", "staging", "production"}
+        assert isinstance(valid_instances, Settings)
         assert isinstance(valid_instances.project_root, Path)
         assert isinstance(valid_instances.default_schema_discriminator, str)
         assert isinstance(valid_instances.registry_auto_discovery, bool)
@@ -97,7 +99,7 @@ class TestSettings:
     def test_invalid_initialization_values(self) -> None:
         """Test initialization with invalid values fails validation."""
         with pytest.raises(ValidationError):
-            Settings(environment="invalid_env")  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            Settings(registry_auto_discovery="invalid_bool")  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     @pytest.mark.sanity
     def test_invalid_initialization_missing(self) -> None:
@@ -112,7 +114,6 @@ class TestSettings:
         """Test Pydantic dumping and validation."""
         data_dict = valid_instances.model_dump()
         recreated_settings = Settings.model_validate(data_dict)
-        assert recreated_settings.environment == valid_instances.environment
         assert recreated_settings.project_root == valid_instances.project_root
         assert (
             recreated_settings.default_schema_discriminator
@@ -143,7 +144,6 @@ class TestSettings:
         """Test the concise string representation."""
         string_val = str(valid_instances)
         assert "Settings(" in string_val
-        assert f"environment={valid_instances.environment!r}" in string_val
         assert f"project_root={valid_instances.project_root!r}" in string_val
 
     @pytest.mark.smoke
@@ -151,7 +151,6 @@ class TestSettings:
         """Test the detailed string representation."""
         repr_val = repr(valid_instances)
         assert "Settings(" in repr_val
-        assert f"environment={valid_instances.environment!r}" in repr_val
         assert f"project_root={valid_instances.project_root!r}" in repr_val
 
 

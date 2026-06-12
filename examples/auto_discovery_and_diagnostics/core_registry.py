@@ -43,7 +43,7 @@ class PluginRegistry(PydanticClassRegistryMixin):
         """
         try:
             return super().register_decorator(target_object, name=name)
-        except Exception as error:
+        except Exception:
             # Rollback registration if rebuilding/compilation fails
             if name is None:
                 resolved_names: list[str] = [
@@ -57,7 +57,7 @@ class PluginRegistry(PydanticClassRegistryMixin):
             for resolved_name in resolved_names:
                 cls.registry.pop(resolved_name, None)
                 cls._lower_registry.pop(resolved_name.lower(), None)
-            raise error
+            raise
 
     @classmethod
     def model_rebuild(

@@ -34,33 +34,33 @@ from tests.conftest import async_timeout
 # ==============================================================================
 
 
-class BaseMessage(PydanticClassRegistryMixin):
+class BaseE2EMessage(PydanticClassRegistryMixin):
     """Base message model for E2E testing using default discriminator."""
 
     schema_discriminator = "model_type"
     model_type: str
 
 
-@BaseMessage.register("text")
-class TextMessage(BaseMessage):
+@BaseE2EMessage.register("text")
+class TextE2EMessage(BaseE2EMessage):
     """Text message subclass for E2E testing."""
 
     model_type: Literal["text"] = "text"
     content: str
 
 
-@BaseMessage.register("image")
-class ImageMessage(BaseMessage):
+@BaseE2EMessage.register("image")
+class ImageE2EMessage(BaseE2EMessage):
     """Image message subclass for E2E testing."""
 
     model_type: Literal["image"] = "image"
     url: str
 
 
-class ContainerModel(BaseModel):
-    """Container model nesting the polymorphic BaseMessage."""
+class ContainerE2EModel(BaseModel):
+    """Container model nesting the polymorphic BaseE2EMessage."""
 
-    message: BaseMessage
+    message: BaseE2EMessage
 
 
 # ==============================================================================
@@ -169,10 +169,10 @@ class TestPolymorphicUnion:
         """Fixture supplying clean polymorphic test contexts."""
         if request.param == "default_discriminator":
             return PolymorphicTestContext(
-                base_class=BaseMessage,
-                text_class=TextMessage,
-                image_class=ImageMessage,
-                container_class=ContainerModel,
+                base_class=BaseE2EMessage,
+                text_class=TextE2EMessage,
+                image_class=ImageE2EMessage,
+                container_class=ContainerE2EModel,
                 discriminator="model_type",
             )
         else:
@@ -359,7 +359,7 @@ class TestPolymorphicUnion:
         assert response["success"] is True, (
             f"IPC validation failed: {response.get('error_msg')}"
         )
-        assert response["type_name"] in ("TextMessage", "TextCustomMessage")
+        assert response["type_name"] in ("TextE2EMessage", "TextCustomMessage")
         assert response["data"]["content"] == "ipc-message"
 
     @pytest.mark.sanity
@@ -415,7 +415,7 @@ class TestCLIEntrypoint:
         runner = CliRunner()
         result = runner.invoke(app, ["list"])
         assert result.exit_code == 0
-        assert "BaseMessage" in result.stdout
+        assert "BaseE2EMessage" in result.stdout
         assert "BaseCustomMessage" in result.stdout
         assert "text" in result.stdout
         assert "image" in result.stdout
@@ -426,22 +426,22 @@ class TestCLIEntrypoint:
         result = runner.invoke(app, ["list", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.stdout)
-        assert "BaseMessage" in data
+        assert "BaseE2EMessage" in data
         assert "BaseCustomMessage" in data
-        expected_text = "tests.e2e.test_polymorphic_union.TextMessage"
-        expected_image = "tests.e2e.test_polymorphic_union.ImageMessage"
-        assert data["BaseMessage"]["text"] == expected_text
-        assert data["BaseMessage"]["image"] == expected_image
+        expected_text = "tests.e2e.test_polymorphic_union.TextE2EMessage"
+        expected_image = "tests.e2e.test_polymorphic_union.ImageE2EMessage"
+        assert data["BaseE2EMessage"]["text"] == expected_text
+        assert data["BaseE2EMessage"]["image"] == expected_image
 
     def test_cli_schema(self) -> None:
         """Verify generating schema for module-level registry base classes."""
         runner = CliRunner()
         result = runner.invoke(
             app,
-            ["schema", "tests.e2e.test_polymorphic_union.BaseMessage"],
+            ["schema", "tests.e2e.test_polymorphic_union.BaseE2EMessage"],
         )
         assert result.exit_code == 0
         schema_dict = json.loads(result.stdout)
         assert "$defs" in schema_dict
-        assert "TextMessage" in schema_dict["$defs"]
-        assert "ImageMessage" in schema_dict["$defs"]
+        assert "TextE2EMessage" in schema_dict["$defs"]
+        assert "ImageE2EMessage" in schema_dict["$defs"]

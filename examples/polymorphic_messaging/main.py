@@ -52,7 +52,7 @@ def main() -> None:
     # 1. Verify Lookahead Deserialization (US-02)
     payloads = [
         {"model_type": "TEXT", "content": "Hello World!"},
-        {"model_type": "image", "url": "https://example.com/logo.png"},
+        {"model_type": "image", "url": "https://placehold.co/150.png"},
     ]
 
     for payload in payloads:
