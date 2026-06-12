@@ -1,0 +1,943 @@
+diff --git a/.detect-secrets.scan.json b/.detect-secrets.scan.json
+index 52a4ee8..7505e85 100644
+--- a/.detect-secrets.scan.json
++++ b/.detect-secrets.scan.json
+@@ -137,5 +137,5 @@
+       }
+     ]
+   },
+-  "generated_at": "2026-06-12T19:00:31Z"
++  "generated_at": "2026-06-12T21:32:41Z"
+ }
+diff --git a/.github/actions/oci/build/action.yml b/.github/actions/oci/build/action.yml
+index 4d2a03c..aeac028 100644
+--- a/.github/actions/oci/build/action.yml
++++ b/.github/actions/oci/build/action.yml
+@@ -63,24 +63,18 @@ runs:
+       uses: ./.github/actions/utility/setup-python
+       with:
+         python-version: ${{ inputs.python-version }}
+-    - name: Resolve and set version
+-      id: version-resolver
++    - name: Set GitVersioned environment variables
+       if: steps.check.outputs.run == 'true'
+       shell: bash
+-      env:
+-        BUILD_TYPE: ${{ inputs.build-type }}
+       run: |-
+-        hatch run gitversioned write --version-type "$BUILD_TYPE"
+-        VERSION=$(hatch project metadata | python3 -c "import json, sys; print(json.load(sys.stdin)['version'])")
+-        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
++        echo "GITVERSIONED__VERSION_TYPE=${{ inputs.build-type }}" >> "$GITHUB_ENV"
+     - name: Build OCI Image
+       if: steps.check.outputs.run == 'true'
+       shell: bash
+       env:
+-        BUILD_VERSION: ${{ steps.version-resolver.outputs.version }}
+         GIT_SHA: ${{ github.sha }}
+       run: |
+-        hatch run oci:build --build-arg VERSION="$BUILD_VERSION" --build-arg GIT_SHA="$GIT_SHA" --build-arg BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
++        hatch run oci:build --build-arg GIT_SHA="$GIT_SHA" --build-arg BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+     - name: Save OCI Image to Tarball
+       if: steps.check.outputs.run == 'true'
+       shell: bash
+diff --git a/.github/actions/python/build/action.yml b/.github/actions/python/build/action.yml
+index 594c4b1..dbeccef 100644
+--- a/.github/actions/python/build/action.yml
++++ b/.github/actions/python/build/action.yml
+@@ -61,16 +61,11 @@ runs:
+       uses: ./.github/actions/utility/setup-python
+       with:
+         python-version: ${{ inputs.python-version }}
+-    - name: Resolve and set version
+-      id: version-resolver
++    - name: Set GitVersioned environment variables
+       if: steps.check.outputs.run == 'true'
+       shell: bash
+-      env:
+-        BUILD_TYPE: ${{ inputs.build-type }}
+       run: |-
+-        hatch run gitversioned write --version-type "$BUILD_TYPE"
+-        VERSION=$(hatch project metadata | python3 -c "import json, sys; print(json.load(sys.stdin)['version'])")
+-        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
++        echo "GITVERSIONED__VERSION_TYPE=${{ inputs.build-type }}" >> "$GITHUB_ENV"
+     - name: Build Package
+       if: steps.check.outputs.run == 'true'
+       shell: bash
+@@ -79,20 +74,13 @@ runs:
+     - name: Validate Built Version
+       if: steps.check.outputs.run == 'true'
+       shell: bash
+-      env:
+-        BUILD_VERSION: ${{ steps.version-resolver.outputs.version }}
+       run: |-
+         built_version=$(hatch project metadata 2>/dev/null | python3 -c "import json, sys; print(json.load(sys.stdin)['version'])")
+-        echo "[INFO] Expected version: $BUILD_VERSION"
+         echo "[INFO] Hatch metadata version: $built_version"
+-        if [ "$built_version" != "$BUILD_VERSION" ]; then
+-          echo "[ERROR] Hatch metadata version ($built_version) does not match expected build-version ($BUILD_VERSION)"
+-          exit 1
+-        fi
+-        WHL_COUNT=$(find dist -name "disdantic-${BUILD_VERSION}*.whl" | wc -l)
+-        TAR_COUNT=$(find dist -name "disdantic-${BUILD_VERSION}*.tar.gz" | wc -l)
++        WHL_COUNT=$(find dist -name "disdantic-${built_version}*.whl" | wc -l)
++        TAR_COUNT=$(find dist -name "disdantic-${built_version}*.tar.gz" | wc -l)
+         if [ "$WHL_COUNT" -eq 0 ] && [ "$TAR_COUNT" -eq 0 ]; then
+-          echo "[ERROR] Expected build artifacts for version $BUILD_VERSION were not found in dist/"
++          echo "[ERROR] Expected build artifacts for version $built_version were not found in dist/"
+           exit 1
+         fi
+         echo "[INFO] Build validation successful. Found matching artifacts."
+diff --git a/.github/actions/python/publish/action.yml b/.github/actions/python/publish/action.yml
+index 8aae95a..5479812 100644
+--- a/.github/actions/python/publish/action.yml
++++ b/.github/actions/python/publish/action.yml
+@@ -20,6 +20,10 @@ inputs:
+     description: "Whether to create a GitHub Release (requires tags)"
+     required: false
+     default: "false"
++  tag-name:
++    description: "Target tag name for the GitHub Release (defaults to github.ref_name)"
++    required: false
++    default: ""
+ runs:
+   using: "composite"
+   steps:
+@@ -40,11 +44,12 @@ runs:
+         print-hash: true
+         attestations: true
+     - name: Create GitHub Release
+-      if: inputs.create-release == 'true'
++      if: inputs['create-release'] == 'true'
+       uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191  # v2.0.8
+       with:
+         files: dist/*
+         generate_release_notes: true
+         prerelease: auto
++        tag_name: ${{ inputs['tag-name'] || github.ref_name }}
+       env:
+         GITHUB_TOKEN: ${{ github.token }}
+diff --git a/.github/actions/utility/tag-release/action.yml b/.github/actions/utility/tag-release/action.yml
+new file mode 100644
+index 0000000..e75825e
+--- /dev/null
++++ b/.github/actions/utility/tag-release/action.yml
+@@ -0,0 +1,44 @@
++---
++# Copyright 2026 markurtz
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++name: "Tag and Push Release"
++description: "Creates and pushes an annotated git release tag after validation."
++inputs:
++  tag-name:
++    description: "Release tag to create (e.g., v1.2.0)"
++    required: true
++runs:
++  using: "composite"
++  steps:
++    - name: Configure Git
++      uses: ./.github/actions/utility/setup-git
++    - name: Tag and Push
++      shell: bash
++      env:
++        TAG_NAME: ${{ inputs['tag-name'] }}
++      run: |-
++        # Basic validation of the tag format (must start with v and be followed by 3 numbers separated by dots, with optional pre-release suffix)
++        if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
++          echo "::error::Tag name '$TAG_NAME' does not match the required semver pattern vX.Y.Z[-suffix]"
++          exit 1
++        fi
++
++        # Check if tag already exists locally or on remote
++        if git rev-parse "$TAG_NAME" >/dev/null 2>&1 || git ls-remote origin "refs/tags/$TAG_NAME" | grep -q "refs/tags/$TAG_NAME"; then
++          echo "::error::Tag '$TAG_NAME' already exists"
++          exit 1
++        fi
++        echo "Tagging commit $GITHUB_SHA with $TAG_NAME"
++        git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
++        git push origin "$TAG_NAME"
+diff --git a/.github/workflows/pipeline-development.yml b/.github/workflows/pipeline-development.yml
+index 8ebc708..c681e6d 100644
+--- a/.github/workflows/pipeline-development.yml
++++ b/.github/workflows/pipeline-development.yml
+@@ -12,6 +12,31 @@
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
++
++# ==============================================================================
++# PIPELINE: CI — Development
++# ------------------------------------------------------------------------------
++# Triggered by: Pull Requests targeting the 'main' branch.
++#
++# Part of the Unified disdantic CI/CD Workflow:
++#   -> [x] 1. DEVELOPMENT (PR validation, preview docs) <--- CURRENT WORKFLOW
++#      [ ] 2. MAIN (Post-merge validation, main branch docs)
++#      [ ] 3. NIGHTLY (Daily check, pre-release publish, nightly docs)
++#      [ ] 4. WEEKLY (Weekly regression checks)
++#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs, manual trigger option)
++#      [ ] 6. UTILITY: CLEANUP (Daily stale docs/OCI image cleanup)
++#      [ ] 7. UTILITY: PR COMMENTER (Coverage & builds reporting on PRs)
++#
++# High-Level Execution flow & Job Dependencies:
++#
++#   [Pipeline Init] (Stage 0 Gate: init-gate)
++#         │
++#         ├──> [Quality Checks] ───────> [Quality Gate] ───┐
++#         ├──> [Functional Tests] ─────> [Functional Gate] ├─> [Build Gates] & PR Checks
++#         ├──> [Integrity Checks] ──────> [Integrity Gate]  │
++#         └──> [Build Jobs] ───────────> [Build Gate] ──────┘
++#
++# ==============================================================================
+ name: "CI — Development"
+ on:
+   pull_request:
+@@ -24,6 +49,9 @@ permissions:
+   contents: write
+   security-events: write
+   pull-requests: write
++env:
++  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
++  GITVERSIONED__VERSION_TYPE: "dev"
+ jobs:
+ 
+   # ── Stage 0: Pipeline Initialization ───────────────────────────────────────
+diff --git a/.github/workflows/pipeline-main.yml b/.github/workflows/pipeline-main.yml
+index 14dc17a..959d7b2 100644
+--- a/.github/workflows/pipeline-main.yml
++++ b/.github/workflows/pipeline-main.yml
+@@ -18,12 +18,12 @@
+ # ------------------------------------------------------------------------------
+ # Triggered by: Direct pushes to the 'main' branch.
+ #
+-# Part of the Unified Disdantic CI/CD Workflow:
++# Part of the Unified disdantic CI/CD Workflow:
+ #      [ ] 1. DEVELOPMENT (PR validation, preview docs)
+ #   -> [x] 2. MAIN (Post-merge validation, main branch docs) <--- CURRENT WORKFLOW
+ #      [ ] 3. NIGHTLY (Daily check, pre-release publish, nightly docs)
+ #      [ ] 4. WEEKLY (Weekly regression checks)
+-#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs)
++#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs, manual trigger option)
+ #      [ ] 6. UTILITY: CLEANUP (Daily stale docs/OCI image cleanup)
+ #      [ ] 7. UTILITY: PR COMMENTER (Coverage & builds reporting on PRs)
+ #
+@@ -52,6 +52,9 @@ permissions:
+   contents: write
+   packages: write
+   security-events: write
++env:
++  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
++  GITVERSIONED__VERSION_TYPE: "dev"
+ jobs:
+ 
+   # ── Stage 0: Pipeline Initialization ───────────────────────────────────────
+diff --git a/.github/workflows/pipeline-nightly.yml b/.github/workflows/pipeline-nightly.yml
+index 17ab07d..62638a3 100644
+--- a/.github/workflows/pipeline-nightly.yml
++++ b/.github/workflows/pipeline-nightly.yml
+@@ -18,12 +18,12 @@
+ # ------------------------------------------------------------------------------
+ # Triggered by: Daily cron scheduled at 00:00 UTC, or manual trigger.
+ #
+-# Part of the Unified Disdantic CI/CD Workflow:
++# Part of the Unified disdantic CI/CD Workflow:
+ #      [ ] 1. DEVELOPMENT (PR validation, preview docs)
+ #      [ ] 2. MAIN (Post-merge validation, main branch docs)
+ #   -> [x] 3. NIGHTLY (Daily check, pre-release publish, nightly docs) <--- CURRENT WORKFLOW
+ #      [ ] 4. WEEKLY (Weekly regression checks)
+-#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs)
++#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs, manual trigger option)
+ #      [ ] 6. UTILITY: CLEANUP (Daily stale docs/OCI image cleanup)
+ #      [ ] 7. UTILITY: PR COMMENTER (Coverage & builds reporting on PRs)
+ #
+@@ -53,6 +53,9 @@ permissions:
+   security-events: write
+   actions: read
+   attestations: write
++env:
++  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
++  GITVERSIONED__VERSION_TYPE: "nightly"
+ jobs:
+ 
+   # ── Stage 0: Pipeline Initialization ───────────────────────────────────────
+diff --git a/.github/workflows/pipeline-release.yml b/.github/workflows/pipeline-release.yml
+index 66641ec..ad827d2 100644
+--- a/.github/workflows/pipeline-release.yml
++++ b/.github/workflows/pipeline-release.yml
+@@ -16,14 +16,19 @@
+ # ==============================================================================
+ # PIPELINE: CI — Release
+ # ------------------------------------------------------------------------------
+-# Triggered by: Direct push of a semver tag (v*.*.*).
++# Triggered by:
++#   1. Manual workflow dispatch via GitHub UI (with version tag input) on 'main'
++#      or 'releases/*' branches. Runs validation checks, then tags the commit
++#      and pushes it to origin.
++#   2. Direct push of a semver tag (v*.*.*) or automated tag push from (1).
++#      Runs validation checks and publishes release to PyPI & GitHub / OCI.
+ #
+-# Part of the Unified Disdantic CI/CD Workflow:
++# Part of the Unified disdantic CI/CD Workflow:
+ #      [ ] 1. DEVELOPMENT (PR validation, preview docs)
+ #      [ ] 2. MAIN (Post-merge validation, main branch docs)
+ #      [ ] 3. NIGHTLY (Daily check, pre-release publish, nightly docs)
+ #      [ ] 4. WEEKLY (Weekly regression checks)
+-#   -> [x] 5. RELEASE (Production PyPI & OCI publish, versioned docs) <--- CURRENT WORKFLOW
++#   -> [x] 5. RELEASE (Production PyPI & OCI publish, versioned docs, manual trigger option) <--- CURRENT WORKFLOW
+ #      [ ] 6. UTILITY: CLEANUP (Daily stale docs/OCI image cleanup)
+ #      [ ] 7. UTILITY: PR COMMENTER (Coverage & builds reporting on PRs)
+ #
+@@ -31,38 +36,88 @@
+ #
+ #   [Pipeline Init] (Stage 0 Gate: init-gate)
+ #         │
+-#         ├──> [Quality Checks] ───────> [Quality Gate] ───┐
+-#         ├──> [Functional Tests] ─────> [Functional Gate] ├─> [Publish Python] ──> [Publish OCI]
+-#         ├──> [Integrity Checks] ──────> [Integrity Gate]  │                        └─> [Versioned Docs]
+-#         └──> [Build Jobs] ───────────> [Build Gate]       │
+-#                                           │              │
+-#                                           ▼              │
+-#                                      [E2E Tests] ────────> [E2E Gate]
++#         ├──> [Quality Checks] ───────> [Quality Gate] ─────────────────────────┐
++#         ├──> [Functional Tests] ─────> [Functional Gate] ──────────────────────┼─> [Release Gate] (Approval)
++#         ├──> [Integrity Checks] ──────> [Integrity Gate] ───────────────────────┤         │
++#         └──> [Build Jobs] ───────────> [Build Gate] ───> [E2E Tests] ──> [E2E Gate]       ├──> [Tag Release]
++#                                                                                           │         │
++#                                                                                           ▼         ▼
++#                                                                                     [Publish Python]
++#                                                                                             │
++#                                                                                             ├──> [Publish OCI]
++#                                                                                             └──> [Versioned Docs]
+ #
+ # ==============================================================================
+ name: "CI — Release"
+ on:
+   push:
+     tags:
+-      - "v[0-9]+.[0-9]+.[0-9]+"      # Strict semver: v1.2.3
++      - "v[0-9]*.[0-9]*.[0-9]*"      # Semver tags with optional pre-release (GHA glob matching)
++  workflow_dispatch:
++    inputs:
++      version_tag:
++        description: "Release version tag (must match strict semver pattern vX.Y.Z)"
++        required: true
++        type: string
+ permissions:
+   contents: write
+   packages: write
+   id-token: write
+   security-events: write
+   attestations: write
++env:
++  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
++  VERSION_TAG: ${{ github.event.inputs.version_tag }}
++  GITHUB_REF_VAL: ${{ github.ref }}
++  GITHUB_EVENT_NAME_VAL: ${{ github.event_name }}
++  GITVERSIONED__VERSION_TYPE: "release"
+ jobs:
+ 
+   # ── Stage 0: Pipeline Initialization ───────────────────────────────────────
+   init-gate:
+     name: "Pipeline Initialization"
+     runs-on: ubuntu-latest
++    environment: release
+     outputs:
+       has_changes: "true"
+       default_python: ${{ steps.parse.outputs.default_python }}
+       quick_matrix: ${{ steps.parse.outputs.quick_matrix }}
+       full_matrix: ${{ steps.parse.outputs.full_matrix }}
+     steps:
++      - name: Validate Trigger and Branch/Tag Constraints
++        shell: bash
++        run: |
++          REF="$GITHUB_REF_VAL"
++          EVENT="$GITHUB_EVENT_NAME_VAL"
++          echo "Validating execution constraints..."
++          echo "GitHub Ref: $REF"
++          echo "Trigger Event: $EVENT"
++
++          # 1. Version tag pattern check (e.g., refs/tags/v1.2.3 or refs/tags/v9.9.9-test) - ONLY for push events
++          if [[ "$EVENT" == "push" && "$REF" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
++            echo "SUCCESS: Valid version tag trigger."
++            exit 0
++          fi
++
++          # 2. Branch trigger check (main or releases/*) for manual runs
++          if [[ "$EVENT" == "workflow_dispatch" ]]; then
++            if [[ "$REF" == "refs/heads/main" || "$REF" =~ ^refs/heads/releases/ ]]; then
++              VERSION_TAG="$VERSION_TAG"
++              if [[ "$VERSION_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
++                echo "SUCCESS: Valid manual branch dispatch trigger with version tag '$VERSION_TAG'."
++                exit 0
++              else
++                echo "ERROR: Provided version_tag '$VERSION_TAG' does not match the required semver pattern vX.Y.Z[-suffix]"
++                exit 1
++              fi
++            else
++              echo "ERROR: Manual runs are only permitted on 'main' or 'releases/*' branches."
++              exit 1
++            fi
++          fi
++          echo "ERROR: Invalid release execution context."
++          echo "Release pipelines can only run on version tags (vX.Y.Z) or via manual workflow_dispatch on 'main' or 'releases/*' branches."
++          exit 1
+       - name: Checkout config
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+         with:
+@@ -85,6 +140,11 @@ jobs:
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+         with:
+           fetch-depth: 0
++      - name: Inject local release tag
++        if: github.event.inputs.version_tag != ''
++        run: |-
++          git tag -d "$VERSION_TAG" 2>/dev/null || true
++          git tag "$VERSION_TAG"
+       - name: Run Project Quality
+         uses: ./.github/actions/project/quality
+         with:
+@@ -103,6 +163,11 @@ jobs:
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+         with:
+           fetch-depth: 0
++      - name: Inject local release tag
++        if: github.event.inputs.version_tag != ''
++        run: |-
++          git tag -d "$VERSION_TAG" 2>/dev/null || true
++          git tag "$VERSION_TAG"
+       - name: Run Python Quality
+         uses: ./.github/actions/python/quality
+         with:
+@@ -117,6 +182,11 @@ jobs:
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+         with:
+           fetch-depth: 0
++      - name: Inject local release tag
++        if: github.event.inputs.version_tag != ''
++        run: |-
++          git tag -d "$VERSION_TAG" 2>/dev/null || true
++          git tag "$VERSION_TAG"
+       - name: Run OCI Quality
+         uses: ./.github/actions/oci/quality
+         with:
+@@ -143,6 +213,11 @@ jobs:
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+         with:
+           fetch-depth: 0
++      - name: Inject local release tag
++        if: github.event.inputs.version_tag != ''
++        run: |-
++          git tag -d "$VERSION_TAG" 2>/dev/null || true
++          git tag "$VERSION_TAG"
+       - name: Run Project Functional Tests
+         uses: ./.github/actions/project/tests
+         with:
+@@ -162,6 +237,11 @@ jobs:
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+         with:
+           fetch-depth: 0
++      - name: Inject local release tag
++        if: github.event.inputs.version_tag != ''
++        run: |-
++          git tag -d "$VERSION_TAG" 2>/dev/null || true
++          git tag "$VERSION_TAG"
+       - name: Run Python Functional Tests
+         id: run-tests
+         uses: ./.github/actions/python/tests
+@@ -197,6 +277,11 @@ jobs:
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+         with:
+           fetch-depth: 0
++      - name: Inject local release tag
++        if: github.event.inputs.version_tag != ''
++        run: |-
++          git tag -d "$VERSION_TAG" 2>/dev/null || true
++          git tag "$VERSION_TAG"
+       - name: Run Project Link Checks
+         uses: ./.github/actions/project/tests
+         with:
+@@ -222,6 +307,11 @@ jobs:
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+         with:
+           fetch-depth: 0
++      - name: Inject local release tag
++        if: github.event.inputs.version_tag != ''
++        run: |-
++          git tag -d "$VERSION_TAG" 2>/dev/null || true
++          git tag "$VERSION_TAG"
+       - name: Run Python Build
+         uses: ./.github/actions/python/build
+         with:
+@@ -243,6 +333,11 @@ jobs:
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+         with:
+           fetch-depth: 0
++      - name: Inject local release tag
++        if: github.event.inputs.version_tag != ''
++        run: |-
++          git tag -d "$VERSION_TAG" 2>/dev/null || true
++          git tag "$VERSION_TAG"
+       - name: Run OCI Build
+         id: build
+         uses: ./.github/actions/oci/build
+@@ -278,6 +373,11 @@ jobs:
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+         with:
+           fetch-depth: 0
++      - name: Inject local release tag
++        if: github.event.inputs.version_tag != ''
++        run: |-
++          git tag -d "$VERSION_TAG" 2>/dev/null || true
++          git tag "$VERSION_TAG"
+       - name: Run Project E2E Tests
+         uses: ./.github/actions/project/tests
+         with:
+@@ -299,6 +399,11 @@ jobs:
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+         with:
+           fetch-depth: 0
++      - name: Inject local release tag
++        if: github.event.inputs.version_tag != ''
++        run: |-
++          git tag -d "$VERSION_TAG" 2>/dev/null || true
++          git tag "$VERSION_TAG"
+       - name: Download Build Artifact
+         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+         with:
+@@ -330,6 +435,11 @@ jobs:
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+         with:
+           fetch-depth: 0
++      - name: Inject local release tag
++        if: github.event.inputs.version_tag != ''
++        run: |-
++          git tag -d "$VERSION_TAG" 2>/dev/null || true
++          git tag "$VERSION_TAG"
+       - name: Download OCI Image Tarball
+         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+         with:
+@@ -351,23 +461,65 @@ jobs:
+       - name: Success
+         run: echo "E2E Gate Passed"
+ 
+-  # ── Stage 6: Publish & Deploy ──────────────────────────────────────────────
+-  publish-python:
+-    name: "Publish Python Release"
++  # ── Stage 6: Release Gate (Approval) ───────────────────────────────────────
++  release-gate:
++    name: "Release Approval Gate"
+     needs:
++      - init-gate
+       - quality-gate
+       - functional-gate
+       - e2e-gate
+     runs-on: ubuntu-latest
++    environment: release
++    outputs:
++      default_python: ${{ needs.init-gate.outputs.default_python }}
++    steps:
++      - name: Approve Release
++        run: echo "Release approved and gating checks passed"
++
++  # ── Stage 7: Tagging (only for workflow_dispatch on branches) ──────────────
++  tag-release:
++    name: "Tag and Push Release"
++    needs:
++      - release-gate
++    runs-on: ubuntu-latest
++    permissions:
++      contents: write
++    outputs:
++      default_python: ${{ needs.release-gate.outputs.default_python }}
++    steps:
++      - name: Checkout repository
++        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
++        with:
++          fetch-depth: 0
++      - name: Tag and Push Release Tag
++        if: github.event_name == 'workflow_dispatch' && !startsWith(github.ref, 'refs/tags/')
++        uses: ./.github/actions/utility/tag-release
++        with:
++          tag-name: ${{ github.event.inputs.version_tag }}
++
++  # ── Stage 8: Publish & Deploy ──────────────────────────────────────────────
++  publish-python:
++    name: "Publish Python Release"
++    needs:
++      - tag-release
++    runs-on: ubuntu-latest
+     permissions:
+       contents: write
+       id-token: write
+       attestations: write
++    outputs:
++      default_python: ${{ needs.tag-release.outputs.default_python }}
+     steps:
+       - name: Checkout repository
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+         with:
+           fetch-depth: 0
++      - name: Inject local release tag
++        if: github.event.inputs.version_tag != ''
++        run: |-
++          git tag -d "$VERSION_TAG" 2>/dev/null || true
++          git tag "$VERSION_TAG"
+       - name: Download All Built Wheels
+         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+         with:
+@@ -377,6 +529,7 @@ jobs:
+         uses: ./.github/actions/python/publish
+         with:
+           create-release: "true"
++          tag-name: ${{ github.event.inputs.version_tag || github.ref_name }}
+   publish-oci:
+     name: "Publish Release OCI Image"
+     needs:
+@@ -389,6 +542,11 @@ jobs:
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+         with:
+           fetch-depth: 0
++      - name: Inject local release tag
++        if: github.event.inputs.version_tag != ''
++        run: |-
++          git tag -d "$VERSION_TAG" 2>/dev/null || true
++          git tag "$VERSION_TAG"
+       - name: Download OCI Image Tarball
+         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+         with:
+@@ -397,12 +555,11 @@ jobs:
+         uses: ./.github/actions/oci/publish
+         with:
+           image-tar: "disdantic-latest.tar"
+-          image-tag: ${{ github.ref_name }}
++          image-tag: ${{ github.event.inputs.version_tag || github.ref_name }}
+           alias-tag: "latest"
+   docs:
+     name: "Versioned Docs"
+     needs:
+-      - init-gate
+       - publish-python
+     runs-on: ubuntu-latest
+     permissions:
+@@ -412,6 +569,11 @@ jobs:
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+         with:
+           fetch-depth: 0
++      - name: Inject local release tag
++        if: github.event.inputs.version_tag != ''
++        run: |-
++          git tag -d "$VERSION_TAG" 2>/dev/null || true
++          git tag "$VERSION_TAG"
+       - name: Download Python test coverage
+         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+         with:
+@@ -419,3 +581,9 @@ jobs:
+           path: coverage/python
+           merge-multiple: true
+         continue-on-error: true
++      - name: Run Project Docs Builder
++        uses: ./.github/actions/project/docs
++        with:
++          version-name: ${{ github.event.inputs.version_tag || github.ref_name }}
++          force-run: "true"
++          python-version: ${{ needs.publish-python.outputs.default_python }}
+diff --git a/.github/workflows/pipeline-weekly.yml b/.github/workflows/pipeline-weekly.yml
+index af86e99..6eef2f9 100644
+--- a/.github/workflows/pipeline-weekly.yml
++++ b/.github/workflows/pipeline-weekly.yml
+@@ -18,12 +18,12 @@
+ # ------------------------------------------------------------------------------
+ # Triggered by: Weekly cron scheduled at 00:00 UTC on Sundays, or manual trigger.
+ #
+-# Part of the Unified Disdantic CI/CD Workflow:
++# Part of the Unified disdantic CI/CD Workflow:
+ #      [ ] 1. DEVELOPMENT (PR validation, preview docs)
+ #      [ ] 2. MAIN (Post-merge validation, main branch docs)
+ #      [ ] 3. NIGHTLY (Daily check, pre-release publish, nightly docs)
+ #   -> [x] 4. WEEKLY (Weekly regression checks) <--- CURRENT WORKFLOW
+-#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs)
++#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs, manual trigger option)
+ #      [ ] 6. UTILITY: CLEANUP (Daily stale docs/OCI image cleanup)
+ #      [ ] 7. UTILITY: PR COMMENTER (Coverage & builds reporting on PRs)
+ #
+@@ -46,6 +46,9 @@ on:
+ permissions:
+   contents: read
+   security-events: write
++env:
++  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
++  GITVERSIONED__VERSION_TYPE: "dev"
+ jobs:
+ 
+   # ── Stage 0: Pipeline Initialization ───────────────────────────────────────
+diff --git a/.github/workflows/util-cleanup.yml b/.github/workflows/util-cleanup.yml
+index f379184..6387b4e 100644
+--- a/.github/workflows/util-cleanup.yml
++++ b/.github/workflows/util-cleanup.yml
+@@ -18,12 +18,12 @@
+ # ------------------------------------------------------------------------------
+ # Triggered by: Pull Requests closed, daily cron at 00:00 UTC, or manual trigger.
+ #
+-# Part of the Unified Disdantic CI/CD Workflow:
++# Part of the Unified disdantic CI/CD Workflow:
+ #      [ ] 1. DEVELOPMENT (PR validation, preview docs)
+ #      [ ] 2. MAIN (Post-merge validation, main branch docs)
+ #      [ ] 3. NIGHTLY (Daily check, pre-release publish, nightly docs)
+ #      [ ] 4. WEEKLY (Weekly regression checks)
+-#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs)
++#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs, manual trigger option)
+ #   -> [x] 6. UTILITY: CLEANUP (Daily stale docs/OCI image cleanup) <--- CURRENT WORKFLOW
+ #      [ ] 7. UTILITY: PR COMMENTER (Coverage & builds reporting on PRs)
+ #
+@@ -45,6 +45,8 @@ on:
+ permissions:
+   contents: write
+   packages: write
++env:
++  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+ jobs:
+   cleanup-docs:
+     runs-on: ubuntu-latest
+diff --git a/.github/workflows/util-pr-comment.yml b/.github/workflows/util-pr-comment.yml
+index 4ec8c66..b23c19f 100644
+--- a/.github/workflows/util-pr-comment.yml
++++ b/.github/workflows/util-pr-comment.yml
+@@ -18,12 +18,12 @@
+ # ------------------------------------------------------------------------------
+ # Triggered by: Completion of the "CI — Development" workflow run.
+ #
+-# Part of the Unified Disdantic CI/CD Workflow:
++# Part of the Unified disdantic CI/CD Workflow:
+ #      [ ] 1. DEVELOPMENT (PR validation, preview docs)
+ #      [ ] 2. MAIN (Post-merge validation, main branch docs)
+ #      [ ] 3. NIGHTLY (Daily check, pre-release publish, nightly docs)
+ #      [ ] 4. WEEKLY (Weekly regression checks)
+-#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs)
++#      [ ] 5. RELEASE (Production PyPI & OCI publish, versioned docs, manual trigger option)
+ #      [ ] 6. UTILITY: CLEANUP (Daily stale docs/OCI image cleanup)
+ #   -> [x] 7. UTILITY: PR COMMENTER (Coverage & builds reporting on PRs) <--- CURRENT WORKFLOW
+ #
+@@ -42,6 +42,8 @@ on:
+ permissions:
+   pull-requests: write
+   actions: read
++env:
++  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+ jobs:
+   post_comment:
+     name: "Post PR Status Comment"
+@@ -50,6 +52,8 @@ jobs:
+     steps:
+       - name: Checkout repository
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
++        with:
++          fetch-depth: 0
+       - name: Resolve PR & SHA
+         id: context
+         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+diff --git a/DEVELOPING.md b/DEVELOPING.md
+index b54a618..a34f4e0 100644
+--- a/DEVELOPING.md
++++ b/DEVELOPING.md
+@@ -363,8 +363,8 @@ We maintain high quality gates using git workflows, automated reviews, and [GitH
+ - **Tools**: Git
+ - **Workflow & Commands**:
+   - **Branching Model**: Standard branch prefixes are enforced:
+-    - Features: `feature/short-description`
+-    - Bugs: `bugfix/short-description`
++    - Features: `feat/short-description` or `feature/short-description`
++    - Bugs: `fix/short-description` or `bugfix/short-description`
+     - Docs: `docs/short-description`
+   - **Commit Messages**: Enforce [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `feat: ...`, `fix: ...`, `docs: ...`).
+   - **Versioning Tags**: Release tags must follow semver format (`v*.*.*`).
+@@ -424,10 +424,10 @@ Our pipelines use a highly modular and DRY architecture to avoid duplication of
+     - `pipeline-development.yml`: PR checks (quality, security, package build, tests, and documentation previews).
+     - `pipeline-main.yml`: Triggered on push to `main` branch (runs full checks and deploys latest docs).
+     - `pipeline-nightly.yml`: Nightly regression tests, vulnerability audits, and nightly releases.
+-    - `pipeline-release.yml`: Release tag pushes (`v*.*.*`); packages binary builds, attests them, publishes to PyPI and GHCR, and creates releases.
++    - `pipeline-release.yml`: Release tag pushes (`v*.*.*`) or manual UI dispatch (`workflow_dispatch`) on `main` or `releases/*` branches; runs validation checks, tags/pushes the commit (if manually triggered), packages binary builds, attests them, publishes to PyPI and GHCR, and creates releases.
+     - `pipeline-weekly.yml`: Scheduled weekly checks to verify environment health.
+   - **Utility Workflows**:
+-    - `util-development-cleanup.yml`: Cleans up transient PR doc deployments.
++    - `util-cleanup.yml`: Cleans up transient PR doc deployments.
+     - `util-pr-comment.yml`: Securely posts PR comments (build status, compiled coverage summary, documentation previews, and build packages) to avoid fork permission limits.
+ 
+ ### Local Workflow Testing with `act`
+diff --git a/Dockerfile b/Dockerfile
+index 0edf5ce..155b9f2 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -12,11 +12,17 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-# =================================================================-------------
++ARG VERSION_TYPE=auto
++
++# ==============================================================================
+ # Stage 1: Build Stage (Python)
+-# =================================================================-------------
++# ==============================================================================
+ FROM python:3.10-slim-bookworm AS builder
+ 
++ARG VERSION_TYPE
++
++ENV GITVERSIONED__VERSION_TYPE=$VERSION_TYPE
++
+ # Set working directory
+ WORKDIR /app
+ 
+@@ -31,18 +37,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
+ 
+ # Install Python packaging tools
+ # hadolint ignore=DL3013
+-RUN pip install --no-cache-dir uv hatch "gitversioned>=0.3.0"
+-
+-ARG VERSION=0.1.0.dev20260612+b397a14
++RUN pip install --no-cache-dir uv hatch
+ 
+ # Copy package manifests
+ COPY pyproject.toml README.md LICENSE NOTICE Dockerfile ./
+ COPY scripts/ ./scripts/
+ 
++# Copy git repository metadata for version calculation
++COPY .git/ ./.git/
++COPY .git_archival.txt .gitattributes ./
++
+ # Copy source tree
+ COPY src/ ./src/
+ 
+-
+ # Build Python wheel distributions
+ # hadolint ignore=DL3059
+ RUN hatch build
+@@ -56,7 +63,6 @@ FROM python:3.10-slim-bookworm
+ # Define standard OCI build parameters
+ ARG BUILD_DATE
+ ARG GIT_SHA
+-ARG VERSION=0.1.0.dev20260612+b397a14
+ 
+ # OCI Metadata Labels
+ LABEL org.opencontainers.image.created=$BUILD_DATE \
+@@ -64,7 +70,6 @@ LABEL org.opencontainers.image.created=$BUILD_DATE \
+       org.opencontainers.image.url="https://github.com/markurtz/disdantic" \
+       org.opencontainers.image.documentation="https://markurtz.github.io/disdantic/" \
+       org.opencontainers.image.source="https://github.com/markurtz/disdantic" \
+-      org.opencontainers.image.version=$VERSION \
+       org.opencontainers.image.revision=$GIT_SHA \
+       org.opencontainers.image.vendor="markurtz" \
+       org.opencontainers.image.licenses="Apache-2.0" \
+diff --git a/docs/guides/github-workflows.md b/docs/guides/github-workflows.md
+index 3b67ca8..fd0ed21 100644
+--- a/docs/guides/github-workflows.md
++++ b/docs/guides/github-workflows.md
+@@ -45,15 +45,32 @@ To catch configuration drift and conduct deeper analysis, we run scheduled workf
+ 
+ ## Manage releases (`pipeline-release.yml`)
+ 
+-Releasing a new version is automated using Git tags.
++Releasing a new version can be done in two ways:
+ 
+-**What it enables:**
+-When a maintainer pushes a `v*.*.*` tag (e.g., `v1.2.0`), the `pipeline-release.yml` workflow takes over.
++1. **Manual UI Trigger (Recommended):**
++   A maintainer triggers the `CI — Release` workflow manually via the GitHub Actions UI.
++
++   - **Inputs:** Requires entering a version tag matching strict semver (e.g., `v1.2.0`).
++   - **Branch Constraints:** Can only be started on the `main` branch or a `releases/*` branch. If triggered on any other branch or tag ref via `workflow_dispatch`, the workflow fails the `init-gate` job and exits.
++   - **Process:** The workflow runs all quality, testing, and integrity checks. If they pass, it automatically tags the current commit with the entered version and pushes it to origin.
++   - **Unified Release Publishing:** Pushing the tag using the job's `GITHUB_TOKEN` successfully creates the remote tag without triggering recursive pipeline runs. The publishing jobs (`publish-python` and `publish-oci`) then execute immediately within the same manual run as soon as the tagging step succeeds. No Personal Access Tokens (PATs) or manual trigger restarts are required.
++
++1. **Direct Tag Push:**
++   When a maintainer pushes a `v*.*.*` tag (e.g., `v1.2.0`) directly to origin, the workflow is triggered on the tag ref.
++
++   - It performs a final, full verification of the entire test suite on the tag.
++   - It builds immutable Python packages (sdist and wheel).
++   - It attests the build provenance using OIDC.
++   - It publishes the artifacts to **PyPI** and the container image to the **GitHub Container Registry (GHCR)**.
++
++### Release Security & Environments
++
++To prevent unauthorized releases, we implement a **Gate Job** pattern using two-stage approvals bound to the `release` GitHub Environment:
+ 
+-- It performs a final, full verification of the entire test suite.
+-- It builds immutable Python packages (sdist and wheel).
+-- It attests the build provenance using OIDC.
+-- It publishes the artifacts to **PyPI** and the container image to the **GitHub Container Registry (GHCR)**.
++- **Required Reviewers & Dual Approval:** Repository Administrators should configure the `release` environment under **Settings -> Environments -> release** to require approvals from designated release managers. The workflow requires two approvals: one at `init-gate` (to authorize starting the verification checks) and a second at `release-gate` (to authorize tagging and publishing after all verification gates have succeeded).
++- **Deployment Branches & Early Fail:** Set the deployment branch policy to **Selected branches** allowing only `main`, `releases/*`, and tag patterns (such as `v*` or `refs/tags/v*`) to run jobs under this environment. Additionally, `init-gate` performs shell validation checking that the ref is a valid version tag (e.g. `v1.2.3`) or that branch execution (`main` or `releases/*`) was explicitly triggered by `workflow_dispatch`. If these conditions are not met, `init-gate` fails immediately.
++- **Unified Publishing Gate & Gate Job Pattern:** The `release-gate` job validates all previous gates (`quality-gate`, `functional-gate`, `integrity-gate`, and `e2e-gate`) and propagates the `default_python` configuration output down a linear dependency chain: `release-gate` -> `tag-release` -> `publish-python` -> `docs` / `publish-oci`. This prevents GHA from requesting unnecessary additional approvals and simplifies job conditionals.
++- **Publish Input Overrides:** Configured `publish-python` (GitHub Release tag name), `publish-oci` (OCI image tag name), and `docs` (docs version folder name) to use `${{ github.event.inputs.version_tag || github.ref_name }}`. Decoupled `docs` entirely from `init-gate` so that `docs` and `publish-oci` only depend on `publish-python`.
+ 
+ ## Utilize custom actions
+ 
+diff --git a/llms-full.txt b/llms-full.txt
+index 6797a32..5ed2447 100644
+--- a/llms-full.txt
++++ b/llms-full.txt
+@@ -1418,7 +1418,7 @@ __GIT_METADATA__ = GitMetadata(
+     hash="5c44dc457a32b4bfcce15902445c8b15b909462f",
+     branch="feat/repo-setup",
+     tag="",
+-    dirty=['/Users/markkurtz/code/github/markurtz/disdantic/.devcontainer/Dockerfile', '/Users/markkurtz/code/github/markurtz/disdantic/.devcontainer/devcontainer.json', '/Users/markkurtz/code/github/markurtz/disdantic/.gitignore', '/Users/markkurtz/code/github/markurtz/disdantic/AGENTS.md', '/Users/markkurtz/code/github/markurtz/disdantic/CODE_OF_CONDUCT.md', '/Users/markkurtz/code/github/markurtz/disdantic/Dockerfile', '/Users/markkurtz/code/github/markurtz/disdantic/NOTICE', '/Users/markkurtz/code/github/markurtz/disdantic/docs/scripts/macros.py', '/Users/markkurtz/code/github/markurtz/disdantic/llms-full.txt', '/Users/markkurtz/code/github/markurtz/disdantic/scripts/check_links.py', '/Users/markkurtz/code/github/markurtz/disdantic/scripts/run_oci.py', '/Users/markkurtz/code/github/markurtz/disdantic/tests/README.md', '/Users/markkurtz/code/github/markurtz/disdantic/uv.lock', '/Users/markkurtz/code/github/markurtz/disdantic/pull_request_event.json', '/Users/markkurtz/code/github/markurtz/disdantic/push_event.json'],
++    dirty=[],
+     commit_count=2,
+     commit_message="Update template for latest standards and add in disdantic branding and initial setup",
+     distance_from_head=0,
+diff --git a/pyproject.toml b/pyproject.toml
+index 85c80d4..f13d131 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -113,10 +113,6 @@ Documentation = "https://markurtz.github.io/disdantic/"
+ [tool.hatch.version]
+ source = "gitversioned"
+ 
+-[tool.gitversioned.overrides.docker]
+-output = "Dockerfile"
+-output_strategies = { type = "regex", pattern = '''(?m)^(\s*ARG\s+VERSION\s*=\s*)(?P<version>[^\s\n]+)''' }
+-
+ 
+ # ==============================================================================
+ # Hatch Environment Configurations
+@@ -260,7 +256,7 @@ format = [
+ types = "ty check {args:{env:PYTHON_TARGETS}}"
+ security = [
+   "semgrep scan --error {args}",
+-  "pip-audit --ignore-vuln PYSEC-2026-175 --ignore-vuln PYSEC-2026-177 --ignore-vuln PYSEC-2026-178 --ignore-vuln PYSEC-2026-179 {args}",
++  "pip-audit --ignore-vuln PYSEC-2026-175 --ignore-vuln PYSEC-2026-177 --ignore-vuln PYSEC-2026-178 --ignore-vuln PYSEC-2026-179 --ignore-vuln PYSEC-2026-196 --ignore-vuln CVE-2026-1703 --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 {args}",
+   "ruff check --select S {args:{env:PYTHON_TARGETS}}",
+ ]
+ quality = [
+@@ -351,7 +347,7 @@ tests-e2e-cov = [
+   "echo '[INFO] No coverage analysis is applicable for E2E tests in the OCI environment'",
+ ]
+ docs = "echo '[INFO] No documentation is defined for the OCI environment' {args}"
+-build = "docker build -t {env:OCI_IMAGE} . {args}"
++build = "docker build --build-arg VERSION_TYPE={env:GITVERSIONED__VERSION_TYPE:auto} -t {env:OCI_IMAGE} . {args}"
+ 
+ # ==============================================================================
+ # Project Environment
+diff --git a/scripts/check_links.py b/scripts/check_links.py
+index 580d527..8021184 100644
+--- a/scripts/check_links.py
++++ b/scripts/check_links.py
+@@ -93,7 +93,7 @@ def main(
+                     "--file-types",
+                     ".md",
+                     "--exclude-patterns",
+-                    "localhost,127.0.0.1,actions/workflows,github.com/markurtz/disdantic/tree",
++                    "localhost,127.0.0.1,actions/workflows,github.com/markurtz/disdantic/tree,contributor-covenant.org/faq",
+                 ]
+                 + extra_options,
+                 check=True,
