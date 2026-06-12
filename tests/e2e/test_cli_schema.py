@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import re
 import subprocess
 import sys
 from os import environ, pathsep
@@ -203,9 +204,10 @@ class TestCLIEntrypoint:
         runner = CliRunner()
         result = runner.invoke(app, ["schema", "--help"])
         assert result.exit_code == 0
-        assert "--output" in result.stdout
-        assert "--format" in result.stdout
-        assert "--indent" in result.stdout
+        clean_stdout = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", result.stdout)
+        assert "--output" in clean_stdout
+        assert "--format" in clean_stdout
+        assert "--indent" in clean_stdout
 
     @pytest.mark.smoke
     def test_openapi_schema_formatting(self, setup_package: str) -> None:
