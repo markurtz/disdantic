@@ -22,8 +22,11 @@ import pytest
 
 from disdantic import exceptions
 from disdantic.exceptions import (
+    AutoPopulationError,
     DiscriminatorNotFoundError,
     DisdanticError,
+    EmptyRegistryError,
+    MissingPackagesError,
     RegistryCollisionError,
 )
 
@@ -192,4 +195,139 @@ class TestRegistryCollisionError:
         """Omit required arguments to verify validation boundaries."""
         # KeyError allows empty initialization
         error_instance = RegistryCollisionError()
+        assert len(error_instance.args) == 0
+
+
+class TestAutoPopulationError:
+    """Suite to test the AutoPopulationError exception."""
+
+    @pytest.fixture(
+        params=[
+            (),
+            ("Auto-population rejected: discovery is disabled.",),
+            ("another message", "with details"),
+        ]
+    )
+    def valid_instances(self, request: pytest.FixtureRequest) -> AutoPopulationError:
+        """Provide instantiated valid variations of the class across test methods."""
+        return AutoPopulationError(*request.param)
+
+    @pytest.mark.sanity
+    def test_signature(self) -> None:
+        """Validate structural contracts, inheritance lineages, and public exposures."""
+        assert issubclass(AutoPopulationError, DisdanticError)
+        assert issubclass(AutoPopulationError, ValueError)
+        assert "AutoPopulationError" in exceptions.__all__
+
+        # Validate class constructor signature (inherits from ValueError)
+        assert AutoPopulationError.__init__ is ValueError.__init__
+
+    @pytest.mark.smoke
+    def test_initialization(self, valid_instances: AutoPopulationError) -> None:
+        """Verify initialization and correct state mapping."""
+        assert isinstance(valid_instances, AutoPopulationError)
+        assert isinstance(valid_instances.args, tuple)
+
+    @pytest.mark.sanity
+    def test_invalid_initialization_values(self) -> None:
+        """Pass malformed payloads to verify explicit error handling."""
+        # ValueError allows any type in its args
+        error_instance = AutoPopulationError(11111, None)
+        assert error_instance.args == (11111, None)
+
+    @pytest.mark.sanity
+    def test_invalid_initialization_missing(self) -> None:
+        """Omit required arguments to verify validation boundaries."""
+        # AutoPopulationError has no required arguments, so 0 args should be valid
+        error_instance = AutoPopulationError()
+        assert len(error_instance.args) == 0
+
+
+class TestEmptyRegistryError:
+    """Suite to test the EmptyRegistryError exception."""
+
+    @pytest.fixture(
+        params=[
+            (),
+            ("No classes present in the registry setup.",),
+            ("another empty msg", "with details"),
+        ]
+    )
+    def valid_instances(self, request: pytest.FixtureRequest) -> EmptyRegistryError:
+        """Provide instantiated valid variations of the class across test methods."""
+        return EmptyRegistryError(*request.param)
+
+    @pytest.mark.sanity
+    def test_signature(self) -> None:
+        """Validate structural contracts, inheritance lineages, and public exposures."""
+        assert issubclass(EmptyRegistryError, DisdanticError)
+        assert issubclass(EmptyRegistryError, ValueError)
+        assert "EmptyRegistryError" in exceptions.__all__
+
+        # Validate class constructor signature (inherits from ValueError)
+        assert EmptyRegistryError.__init__ is ValueError.__init__
+
+    @pytest.mark.smoke
+    def test_initialization(self, valid_instances: EmptyRegistryError) -> None:
+        """Verify initialization and correct state mapping."""
+        assert isinstance(valid_instances, EmptyRegistryError)
+        assert isinstance(valid_instances.args, tuple)
+
+    @pytest.mark.sanity
+    def test_invalid_initialization_values(self) -> None:
+        """Pass malformed payloads to verify explicit error handling."""
+        # ValueError allows any type in its args
+        error_instance = EmptyRegistryError(22222, None)
+        assert error_instance.args == (22222, None)
+
+    @pytest.mark.sanity
+    def test_invalid_initialization_missing(self) -> None:
+        """Omit required arguments to verify validation boundaries."""
+        # EmptyRegistryError has no required arguments, so 0 args should be valid
+        error_instance = EmptyRegistryError()
+        assert len(error_instance.args) == 0
+
+
+class TestMissingPackagesError:
+    """Suite to test the MissingPackagesError exception."""
+
+    @pytest.fixture(
+        params=[
+            (),
+            ("No packages configured for auto discovery.",),
+            ("missing packages details", "with details"),
+        ]
+    )
+    def valid_instances(self, request: pytest.FixtureRequest) -> MissingPackagesError:
+        """Provide instantiated valid variations of the class across test methods."""
+        return MissingPackagesError(*request.param)
+
+    @pytest.mark.sanity
+    def test_signature(self) -> None:
+        """Validate structural contracts, inheritance lineages, and public exposures."""
+        assert issubclass(MissingPackagesError, DisdanticError)
+        assert issubclass(MissingPackagesError, ValueError)
+        assert "MissingPackagesError" in exceptions.__all__
+
+        # Validate class constructor signature (inherits from ValueError)
+        assert MissingPackagesError.__init__ is ValueError.__init__
+
+    @pytest.mark.smoke
+    def test_initialization(self, valid_instances: MissingPackagesError) -> None:
+        """Verify initialization and correct state mapping."""
+        assert isinstance(valid_instances, MissingPackagesError)
+        assert isinstance(valid_instances.args, tuple)
+
+    @pytest.mark.sanity
+    def test_invalid_initialization_values(self) -> None:
+        """Pass malformed payloads to verify explicit error handling."""
+        # ValueError allows any type in its args
+        error_instance = MissingPackagesError(33333, None)
+        assert error_instance.args == (33333, None)
+
+    @pytest.mark.sanity
+    def test_invalid_initialization_missing(self) -> None:
+        """Omit required arguments to verify validation boundaries."""
+        # MissingPackagesError has no required arguments, so 0 args should be valid
+        error_instance = MissingPackagesError()
         assert len(error_instance.args) == 0

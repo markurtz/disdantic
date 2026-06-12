@@ -30,6 +30,7 @@ key, handling case-insensitive fallbacks and dynamic type dispatching safely.
 from __future__ import annotations
 
 import contextlib
+import sys
 import threading
 from abc import ABC
 from collections.abc import Callable, Sequence
@@ -38,7 +39,12 @@ from typing import Any, ClassVar, Generic, TypeVar, cast
 from pydantic import BaseModel, GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
 
-from disdantic.exceptions import DiscriminatorNotFoundError, RegistryCollisionError
+from disdantic.exceptions import (
+    AutoPopulationError,
+    DiscriminatorNotFoundError,
+    EmptyRegistryError,
+    RegistryCollisionError,
+)
 from disdantic.importer import AutoImporterMixin
 from disdantic.model import ReloadableBaseModel
 from disdantic.settings import get_settings
@@ -173,7 +179,7 @@ class RegistryMixin(Generic[RegistryObjT], AutoImporterMixin):
 
             for resolved_name in resolved_names:
                 if not isinstance(resolved_name, str):
-                    raise ValueError(
+                    raise TypeError(
                         f"Registry keys must explicitly be strings. "
                         f"Got: {type(resolved_name)}"
                     )
@@ -209,7 +215,7 @@ class RegistryMixin(Generic[RegistryObjT], AutoImporterMixin):
         """
         with cls._registry_lock:
             if not cls.is_auto_discovery_enabled():
-                raise ValueError(
+                raise AutoPopulationError(
                     f"Auto-population rejected: registry_auto_discovery is "
                     f"disabled on {cls.__name__}."
                 )
@@ -239,7 +245,8 @@ class RegistryMixin(Generic[RegistryObjT], AutoImporterMixin):
         """
         with cls._registry_lock:
             if cls.is_auto_discovery_enabled():
-                cls.auto_populate_registry()
+                with contextlib.suppress(AutoPopulationError):
+                    cls.auto_populate_registry()
             return tuple(cls.registry.values())
 
     @classmethod
@@ -258,6 +265,9 @@ class RegistryMixin(Generic[RegistryObjT], AutoImporterMixin):
         :returns: True if the identifier is registered, False otherwise.
         """
         with cls._registry_lock:
+            if cls.is_auto_discovery_enabled():
+                with contextlib.suppress(AutoPopulationError):
+                    cls.auto_populate_registry()
             return name in cls.registry or name.lower() in cls._lower_registry
 
     @classmethod
@@ -277,6 +287,9 @@ class RegistryMixin(Generic[RegistryObjT], AutoImporterMixin):
         :returns: The registered object if found, or None.
         """
         with cls._registry_lock:
+            if cls.is_auto_discovery_enabled():
+                with contextlib.suppress(AutoPopulationError):
+                    cls.auto_populate_registry()
             return cls.registry.get(name) or cls._lower_registry.get(name.lower())
 
     @classmethod
@@ -419,7 +432,7 @@ class PydanticClassRegistryMixin(
         """
         registered = cls.registered_objects()
         if not registered:
-            raise ValueError(
+            raise EmptyRegistryError(
                 f"No objects are currently present within the {cls.__name__} "
                 f"registry setup."
             )
@@ -618,7 +631,15 @@ class RegistryManager:
 
     @staticmethod
     def _get_subclasses(target_class: type) -> set[type]:
-        subs = set(target_class.__subclasses__())
+        subs = {
+            sub
+            for sub in target_class.__subclasses__()
+            if (
+                hasattr(sub, "__module__")
+                and isinstance(sub.__module__, str)
+                and sub.__module__ in sys.modules
+            )
+        }
         return subs.union(*(RegistryManager._get_subclasses(sub) for sub in subs))
 
     @staticmethod

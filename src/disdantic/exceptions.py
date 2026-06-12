@@ -26,8 +26,11 @@ and specific exceptions for unresolved registry keys and registry key collisions
 from __future__ import annotations
 
 __all__ = [
+    "AutoPopulationError",
     "DiscriminatorNotFoundError",
     "DisdanticError",
+    "EmptyRegistryError",
+    "MissingPackagesError",
     "RegistryCollisionError",
 ]
 
@@ -111,4 +114,53 @@ class RegistryCollisionError(DisdanticError, KeyError):
                 raise RegistryCollisionError("Duplicate mapping token 'type_a'.")
             except RegistryCollisionError as error:
                 print(f"Collision: {error}")
+    """
+
+
+class AutoPopulationError(DisdanticError, ValueError):
+    """Raised when automatic registry population is rejected because
+    discovery is disabled.
+
+    Example:
+        .. code-block:: python
+
+            from disdantic.exceptions import AutoPopulationError
+
+            try:
+                raise AutoPopulationError(
+                    "Auto-population rejected: discovery is disabled."
+                )
+            except AutoPopulationError as error:
+                print(error)
+    """
+
+
+class EmptyRegistryError(DisdanticError, ValueError):
+    """Raised when no objects or classes are currently present in a registry.
+
+    Example:
+        .. code-block:: python
+
+            from disdantic.exceptions import EmptyRegistryError
+
+            try:
+                raise EmptyRegistryError("No classes present in the registry setup.")
+            except EmptyRegistryError as error:
+                print(error)
+    """
+
+
+class MissingPackagesError(DisdanticError, ValueError):
+    """Raised when autodiscovery is triggered but no target packages
+    have been configured.
+
+    Example:
+        .. code-block:: python
+
+            from disdantic.exceptions import MissingPackagesError
+
+            try:
+                raise MissingPackagesError("No packages configured for auto discovery.")
+            except MissingPackagesError as error:
+                print(error)
     """

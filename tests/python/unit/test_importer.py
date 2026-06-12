@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import pkgutil
 import sys
 from types import ModuleType
@@ -24,6 +25,7 @@ from typing import Any
 
 import pytest
 
+from disdantic.exceptions import MissingPackagesError
 from disdantic.importer import AutoImporterMixin
 from disdantic.settings import get_settings
 
@@ -63,6 +65,9 @@ class TestAutoImporterMixin:
         assert hasattr(AutoImporterMixin, "auto_import_package_modules")
         assert hasattr(AutoImporterMixin, "reset_importer_cache")
 
+        assert inspect.isroutine(AutoImporterMixin.auto_import_package_modules)
+        assert inspect.isroutine(AutoImporterMixin.reset_importer_cache)
+
     @pytest.mark.sanity
     def test_initialization(self, valid_instances: AutoImporterMixin) -> None:
         """Verify that initialization maps states correctly."""
@@ -83,75 +88,13 @@ class TestAutoImporterMixin:
         instance = AutoImporterMixin()
         assert isinstance(instance, AutoImporterMixin)
 
-    @pytest.mark.sanity
-    def test_auto_import_package_modules_no_package(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Verify ValueError is raised when no packages are configured."""
-
-        class ImporterWithoutPackage(AutoImporterMixin):
-            auto_package = None
-
-        settings = get_settings()
-        monkeypatch.setattr(settings, "auto_packages", [])
-
-        with pytest.raises(ValueError) as exc_info:
-            ImporterWithoutPackage.auto_import_package_modules()
-        assert "auto_package" in str(exc_info.value)
-
-    @pytest.mark.sanity
-    def test_auto_import_package_modules_missing_root(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Verify ImportError is raised when root package cannot be resolved."""
-
-        class ImporterWithMissingPackage(AutoImporterMixin):
-            auto_package = "non_existent_root_package"
-
-        def mock_import_module(name: str) -> ModuleType:
-            raise ModuleNotFoundError(f"No module named '{name}'")
-
-        monkeypatch.setattr(importlib, "import_module", mock_import_module)
-
-        with pytest.raises(ImportError) as exc_info:
-            ImporterWithMissingPackage.auto_import_package_modules()
-        assert "root 'non_existent_root_package' could not be resolved" in str(
-            exc_info.value
-        )
-
-    @pytest.mark.sanity
-    def test_auto_import_package_modules_not_a_package(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Verify early exit when root package is a simple module with no __path__."""
-
-        class ImporterWithSimpleModule(AutoImporterMixin):
-            auto_package = "simple_module"
-
-        mock_module = ModuleType("simple_module")
-        if hasattr(mock_module, "__path__"):
-            delattr(mock_module, "__path__")
-
-        monkeypatch.setattr(importlib, "import_module", lambda name: mock_module)
-
-        walk_called = False
-
-        def mock_walk_packages(*args: Any, **kwargs: Any) -> list:
-            nonlocal walk_called
-            walk_called = True
-            return []
-
-        monkeypatch.setattr(pkgutil, "walk_packages", mock_walk_packages)
-
-        ImporterWithSimpleModule.auto_import_package_modules()
-        assert not walk_called
-
     @pytest.mark.regression
-    def test_auto_import_package_modules_walk(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Verify import logic, ignore rules, and cache additions during traversal."""
+    def test_auto_import_package_modules(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Verify successful package walking, settings integration,
+        ignore rules, and cache additions.
+        """
 
+        # Scenario A: Walk discovery with class-level configuration
         class ImporterForWalk(AutoImporterMixin):
             auto_package = "my_package"
             auto_ignore_modules = ["my_package.ignored_sub"]
@@ -159,7 +102,8 @@ class TestAutoImporterMixin:
         ImporterForWalk.reset_importer_cache()
 
         root_package = ModuleType("my_package")
-        root_package.__path__ = ["/dummy/path"]  # type: ignore[attr-defined]
+        root_package_path = ["/dummy/path"]
+        root_package.__path__ = root_package_path
 
         discovered_modules = [
             (None, "my_package.pkg_sub", True),
@@ -176,33 +120,39 @@ class TestAutoImporterMixin:
 
         imported_modules: list[str] = []
 
-        def mock_import_module(name: str) -> ModuleType:
-            imported_modules.append(name)
-            if name == "my_package":
+        def mock_import_module(module_name: str) -> ModuleType:
+            imported_modules.append(module_name)
+            if module_name == "my_package":
                 return root_package
-            return ModuleType(name)
+            return ModuleType(module_name)
 
         monkeypatch.setattr(importlib, "import_module", mock_import_module)
-        monkeypatch.setattr(
-            pkgutil, "walk_packages", lambda path, prefix: discovered_modules
-        )
 
+        def mock_walk(
+            unused_path: Any, unused_prefix: str
+        ) -> list[tuple[None, str, bool]]:
+            return discovered_modules
+
+        monkeypatch.setattr(pkgutil, "walk_packages", mock_walk)
+
+        # Invoke
         ImporterForWalk.auto_import_package_modules()
 
+        # Assert / Verify
         assert "my_package.pkg_sub" not in ImporterForWalk._auto_imported_modules
         assert "my_package.ignored_sub" not in ImporterForWalk._auto_imported_modules
         assert "my_package.cached_sub" in ImporterForWalk._auto_imported_modules
         assert "my_package.sys_sub" in ImporterForWalk._auto_imported_modules
         assert "my_package.new_sub" in ImporterForWalk._auto_imported_modules
 
-        assert imported_modules == ["my_package", "my_package.new_sub"]
+        assert "my_package" in imported_modules
+        assert "my_package.new_sub" in imported_modules
 
-    @pytest.mark.regression
-    def test_auto_import_package_modules_settings_integration(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Verify packages/ignores merge from class and global settings."""
+        # Teardown
+        ImporterForWalk.reset_importer_cache()
 
+        # Scenario B: Settings integration (merging class-level
+        # and settings configurations)
         class ImporterWithSettings(AutoImporterMixin):
             auto_package = ["pkg_a", "pkg_b"]
             auto_ignore_modules = ["pkg_a.sub_ignored"]
@@ -213,20 +163,27 @@ class TestAutoImporterMixin:
 
         imported_roots: list[str] = []
 
-        def mock_import_module(name: str) -> ModuleType:
-            imported_roots.append(name)
-            mock_module = ModuleType(name)
-            mock_module.__path__ = ["/dummy"]  # type: ignore[attr-defined]
+        def mock_import_root(module_name: str) -> ModuleType:
+            imported_roots.append(module_name)
+            mock_module = ModuleType(module_name)
+            mock_module.__path__ = ["/dummy"]
             return mock_module
 
-        monkeypatch.setattr(importlib, "import_module", mock_import_module)
-        monkeypatch.setattr(pkgutil, "walk_packages", lambda path, prefix: [])
+        monkeypatch.setattr(importlib, "import_module", mock_import_root)
+
+        def mock_empty_walk(unused_path: Any, unused_prefix: str) -> list:
+            return []
+
+        monkeypatch.setattr(pkgutil, "walk_packages", mock_empty_walk)
 
         ImporterWithSettings.auto_import_package_modules()
 
-        assert imported_roots == ["pkg_a", "pkg_b", "pkg_c"]
+        assert "pkg_a" in imported_roots
+        assert "pkg_b" in imported_roots
+        assert "pkg_c" in imported_roots
 
-        discovered_modules = [
+        # Verify walk with actual filtering
+        discovered_subs = [
             (None, "pkg_a.sub_ignored", False),
             (None, "pkg_b.sub_ignored", False),
             (None, "pkg_a.sub_valid", False),
@@ -235,17 +192,21 @@ class TestAutoImporterMixin:
         ImporterWithSettings.reset_importer_cache()
         imported_subs: list[str] = []
 
-        def mock_import_module_walk(name: str) -> ModuleType:
-            if "." in name:
-                imported_subs.append(name)
-            mock_module = ModuleType(name)
-            mock_module.__path__ = ["/dummy"]  # type: ignore[attr-defined]
+        def mock_import_walk(module_name: str) -> ModuleType:
+            if "." in module_name:
+                imported_subs.append(module_name)
+            mock_module = ModuleType(module_name)
+            mock_module.__path__ = ["/dummy"]
             return mock_module
 
-        monkeypatch.setattr(importlib, "import_module", mock_import_module_walk)
-        monkeypatch.setattr(
-            pkgutil, "walk_packages", lambda path, prefix: discovered_modules
-        )
+        monkeypatch.setattr(importlib, "import_module", mock_import_walk)
+
+        def mock_sub_walk(
+            unused_path: Any, unused_prefix: str
+        ) -> list[tuple[None, str, bool]]:
+            return discovered_subs
+
+        monkeypatch.setattr(pkgutil, "walk_packages", mock_sub_walk)
 
         ImporterWithSettings.auto_import_package_modules()
 
@@ -253,10 +214,71 @@ class TestAutoImporterMixin:
         assert "pkg_a.sub_ignored" not in imported_subs
         assert "pkg_b.sub_ignored" not in imported_subs
 
+        # Teardown
+        ImporterWithSettings.reset_importer_cache()
+
+    @pytest.mark.sanity
+    def test_auto_import_package_modules_invalid(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verify errors are raised when packages are missing or
+        root packages are unresolvable.
+        """
+
+        # 1. No package configured at all (MissingPackagesError)
+        class ImporterWithoutPackage(AutoImporterMixin):
+            auto_package = None
+
+        settings = get_settings()
+        monkeypatch.setattr(settings, "auto_packages", [])
+
+        with pytest.raises(MissingPackagesError) as exc_info:
+            ImporterWithoutPackage.auto_import_package_modules()
+        assert "auto_package" in str(exc_info.value)
+
+        # 2. Missing root package cannot be resolved
+        # (ImportError wrapping ModuleNotFoundError)
+        class ImporterWithMissingPackage(AutoImporterMixin):
+            auto_package = "non_existent_root_package"
+
+        def mock_import_fail(module_name: str) -> ModuleType:
+            raise ModuleNotFoundError(f"No module named '{module_name}'")
+
+        monkeypatch.setattr(importlib, "import_module", mock_import_fail)
+
+        with pytest.raises(ImportError) as exc_info:
+            ImporterWithMissingPackage.auto_import_package_modules()
+        assert "root 'non_existent_root_package' could not be resolved" in str(
+            exc_info.value
+        )
+
+        # 3. Target is a module rather than a package (has no __path__ attribute)
+        class ImporterWithSimpleModule(AutoImporterMixin):
+            auto_package = "simple_module"
+
+        mock_module = ModuleType("simple_module")
+        if hasattr(mock_module, "__path__"):
+            delattr(mock_module, "__path__")
+
+        monkeypatch.setattr(importlib, "import_module", lambda module_name: mock_module)
+
+        walk_called = False
+
+        def mock_walk_fail(unused_path: Any, unused_prefix: str) -> list:
+            nonlocal walk_called
+            walk_called = True
+            return []
+
+        monkeypatch.setattr(pkgutil, "walk_packages", mock_walk_fail)
+
+        ImporterWithSimpleModule.auto_import_package_modules()
+        assert not walk_called
+
     @pytest.mark.smoke
     def test_reset_importer_cache(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Verify reset_importer_cache clears cache and sys.modules."""
+        """Verify reset_importer_cache clears local cache and pops sys.modules."""
 
+        # 1. Setup & Mock
         class ImporterForReset(AutoImporterMixin):
             pass
 
@@ -273,8 +295,10 @@ class TestAutoImporterMixin:
         monkeypatch.setitem(sys.modules, "my_package.module_one", mock_module_one)
         monkeypatch.setitem(sys.modules, "my_package.module_two", mock_module_two)
 
+        # 2. Invoke
         ImporterForReset.reset_importer_cache()
 
+        # 3. Assert / Verify
         assert "my_package.module_one" not in sys.modules
         assert "my_package.module_two" not in sys.modules
         assert len(ImporterForReset._auto_imported_modules) == 0

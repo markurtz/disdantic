@@ -1,3 +1,17 @@
+# Copyright 2026 markurtz
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from __future__ import annotations
 
 import inspect
@@ -266,10 +280,7 @@ class TestOtelSink:
 
     @pytest.mark.sanity
     def test_write_otel_record_with_trace_and_exception(self) -> None:
-        """Test OtelSink.write when OpenTelemetry tracing is active
-
-        and an exception is present.
-        """
+        """Test OtelSink.write when OpenTelemetry tracing is active with exception."""
 
         class MockContext:
             is_valid = True
@@ -333,6 +344,77 @@ class TestOtelSink:
         assert data["attributes"]["exception.type"] == "ValueError"
         assert data["attributes"]["exception.message"] == "custom error message"
         assert "exception.stacktrace" in data["attributes"]
+
+    @pytest.mark.sanity
+    def test_write_otel_record_with_invalid_trace(self) -> None:
+        """Test OtelSink.write when OpenTelemetry is active but span is invalid."""
+
+        class MockContext:
+            is_valid = False
+            trace_id = 0
+            span_id = 0
+            trace_flags = 0
+
+        class MockSpan:
+            def get_span_context(self) -> MockContext:
+                return MockContext()
+
+        class MockTrace:
+            def get_current_span(self) -> MockSpan:
+                return MockSpan()
+
+        class MockLevel:
+            name = "INFO"
+
+        mock_process = MagicMock()
+        set_process_id(mock_process, 5555)
+
+        record_dict = {
+            "time": datetime(2026, 6, 11, 9, 30, 0),
+            "level": MockLevel(),
+            "message": "info logged",
+            "name": "disdantic",
+            "function": "info_func",
+            "line": 80,
+            "process": mock_process,
+            "extra": {},
+        }
+
+        class MockMessage(str):
+            record: dict[str, Any]
+
+        msg_obj = MockMessage("formatted info message\n")
+        msg_obj.record = record_dict
+
+        stream = StringIO()
+        sink = OtelSink(stream)
+
+        mock_trace = MockTrace()
+        with patch("disdantic.logging.opentelemetry_trace", mock_trace):
+            sink.write(msg_obj)
+
+        output_str = stream.getvalue()
+        data = json.loads(output_str)
+
+        assert "trace_id" not in data
+        assert "span_id" not in data
+        assert "trace_flags" not in data
+
+    @pytest.mark.sanity
+    def test_write_no_flush_stream(self) -> None:
+        """Test OtelSink.write with a target stream that lacks a flush method."""
+
+        class NoFlushStream:
+            def __init__(self) -> None:
+                self.buffer: list[str] = []
+
+            def write(self, text: str) -> None:
+                self.buffer.append(text)
+
+        stream = NoFlushStream()
+        sink = OtelSink(stream)
+        sink.write("no-flush test message\n")
+        assert stream.buffer == ["no-flush test message\n"]
 
     @pytest.mark.sanity
     def test_close(self, tmp_path: Path) -> None:
@@ -461,6 +543,51 @@ class TestInterceptHandler:
 
             mock_opt.log.assert_called_once_with(35, "custom level message")
 
+    @pytest.mark.sanity
+    def test_emit_with_exception(self) -> None:
+        """Test emit method with exception information present in LogRecord."""
+        try:
+            raise RuntimeError("inner exception message")
+        except RuntimeError:
+            exc_info = sys.exc_info()
+
+        record = logging.LogRecord(
+            name="test_logger",
+            level=logging.ERROR,
+            pathname="some/file_path.py",
+            lineno=42,
+            msg="error occurred",
+            args=(),
+            exc_info=exc_info,
+            func="fail_func",
+        )
+
+        handler = InterceptHandler()
+
+        with patch("disdantic.logging.logger") as mock_logger:
+            mock_level_info = MagicMock()
+            mock_level_info.name = "ERROR"
+            mock_logger.level.return_value = mock_level_info
+
+            mock_patch = MagicMock()
+            mock_bind = MagicMock()
+            mock_opt = MagicMock()
+
+            mock_logger.patch.return_value = mock_patch
+            mock_patch.bind.return_value = mock_bind
+            mock_bind.opt.return_value = mock_opt
+
+            handler.emit(record)
+
+            mock_logger.patch.assert_called_once()
+            mock_patch.bind.assert_called_once_with(
+                pathname="some/file_path.py",
+                lineno=42,
+                funcName="fail_func",
+            )
+            mock_bind.opt.assert_called_once_with(exception=exc_info)
+            mock_opt.log.assert_called_once_with("ERROR", "error occurred")
+
 
 class TestConfigureLogger:
     """Test suite for configure_logger module-level function."""
@@ -501,6 +628,14 @@ class TestConfigureLogger:
                 "expect_enabled": True,
                 "expected_filter": None,
             },
+            {
+                "settings": {
+                    "enabled": True,
+                    "filter": lambda record: "keep" in record.get("message", ""),
+                },
+                "expect_enabled": True,
+                "expected_filter_callable": True,
+            },
         ],
     )
     def test_invocation(self, scenario: dict[str, Any]) -> None:
@@ -539,6 +674,10 @@ class TestConfigureLogger:
                     assert logger_filter({"name": f"{prefixes[0]}.module"}) is True
                     assert logger_filter({"name": "other_module"}) is False
                     assert logger_filter({"name": None}) is False
+                elif "expected_filter_callable" in scenario:
+                    assert callable(logger_filter)
+                    assert logger_filter({"message": "should keep"}) is True
+                    assert logger_filter({"message": "other"}) is False
 
     @pytest.mark.regression
     @pytest.mark.parametrize(
@@ -553,10 +692,7 @@ class TestConfigureLogger:
     def test_invalid(
         self, otel_setting: str, mock_trace_present: bool, expect_error: bool
     ) -> None:
-        """Verify exception/failure conditions and boundary overrides
-
-        for configure_logger.
-        """
+        """Verify exception/failure conditions and overrides for configure_logger."""
         settings = LoggingSettings(enabled=True, otel_formatting=otel_setting)  # type: ignore
 
         mock_trace = MagicMock() if mock_trace_present else None
@@ -594,10 +730,7 @@ class TestConfigureLogger:
 
     @pytest.mark.regression
     def test_invocation_clear_loggers_real_logger(self) -> None:
-        """Test configure_logger clear_loggers path with a real
-
-        non-mock logger (line 215-221).
-        """
+        """Test configure_logger clear_loggers path with a real non-mock logger."""
         original_handler_id = _state["handler_id"]
         try:
             configure_logger(LoggingSettings(enabled=True))
@@ -611,6 +744,83 @@ class TestConfigureLogger:
         finally:
             logger.remove()
             _state["handler_id"] = original_handler_id
+
+    @pytest.mark.regression
+    def test_invocation_clear_loggers_propagate_handler(self) -> None:
+        """Verify configure_logger clear_loggers path ignores PropagateHandler.
+
+        This ensures that active root handlers of type PropagateHandler are
+        not removed during logger cleanup (line 218-220 in logging.py).
+        """
+
+        class PropagateHandler:
+            """Dummy class representing a PropagateHandler."""
+
+        class MockOtherHandler:
+            """Dummy class representing a standard Handler."""
+
+        class DummySink:
+            """Dummy sink wrapping a handler object."""
+
+            def __init__(self, handler_obj: Any) -> None:
+                self._handler = handler_obj
+
+            def write(self, message: str) -> None:
+                pass
+
+        class FakeHandler:
+            def __init__(self, sink_obj: Any) -> None:
+                self._sink = sink_obj
+
+        # Create one mock propagate handler and one other handler
+        propagate_sink = DummySink(PropagateHandler())
+        other_sink = DummySink(MockOtherHandler())
+
+        propagate_handler_id = 8801
+        other_handler_id = 8802
+
+        mock_handlers = {
+            propagate_handler_id: FakeHandler(propagate_sink),
+            other_handler_id: FakeHandler(other_sink),
+        }
+
+        settings = LoggingSettings(enabled=True, clear_loggers=True)
+
+        class FakeLogger:
+            def __init__(self, handlers_dict: dict[int, Any]) -> None:
+                self._core = MagicMock()
+                self._core.handlers = handlers_dict
+                self.remove = MagicMock()
+                self.add = MagicMock()
+                self.enable = MagicMock()
+                self.disable = MagicMock()
+
+        fake_logger = FakeLogger(mock_handlers)
+
+        with patch("disdantic.logging.logger", fake_logger):
+            fake_logger.add.return_value = 12345
+
+            configure_logger(settings)
+
+            # Assert only other_handler_id was removed and
+            # propagate_handler_id was spared
+            fake_logger.remove.assert_called_once_with(other_handler_id)
+
+    @pytest.mark.sanity
+    def test_invocation_with_env_and_no_settings(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verify configure_logger parses env variables when settings is None."""
+        monkeypatch.setenv("DISDANTIC__LOGGING__LEVEL", "DEBUG")
+        monkeypatch.setenv("DISDANTIC__LOGGING__ENABLED", "true")
+
+        with patch("disdantic.logging.logger") as mock_logger:
+            mock_logger.add.return_value = 54321
+            configure_logger(None)
+
+            mock_logger.add.assert_called_once()
+            add_kwargs = mock_logger.add.call_args.kwargs
+            assert add_kwargs["level"] == "DEBUG"
 
 
 class TestAutolog:
@@ -751,10 +961,7 @@ def test_logger() -> None:
 
 @pytest.mark.regression
 def test_otel_private_helpers() -> None:
-    """Verify that private helpers _otel_serialize and
-
-    _otel_formatter execute correctly.
-    """
+    """Verify that private helpers execute correctly."""
 
     class MockLevel:
         name = "INFO"
@@ -781,3 +988,34 @@ def test_otel_private_helpers() -> None:
     formatted_str = _otel_formatter(record)
     assert "private helper test" in formatted_str
     assert formatted_str.endswith("\n")
+
+
+@pytest.mark.regression
+def test_otel_formatter_escaping() -> None:
+    """Verify that _otel_formatter correctly escapes Loguru markup and braces.
+
+    Braces '{' and '}' must be escaped to '{{' and '}}' so they are not
+    interpreted as format fields, and '<' and '>' must be escaped to '\\<' and
+    '\\>' so they are not parsed as Loguru color tag markups.
+    """
+
+    class MockLevel:
+        name = "INFO"
+
+    mock_process = MagicMock()
+    set_process_id(mock_process, 1111)
+
+    record = {
+        "time": datetime(2026, 6, 11, 10, 0, 0),
+        "level": MockLevel(),
+        "message": "message with <tag> and {brace}",
+        "name": "disdantic",
+        "function": "some_func",
+        "line": 100,
+        "process": mock_process,
+        "extra": {},
+    }
+
+    formatted_str = _otel_formatter(record)
+    assert "\\<tag\\>" in formatted_str
+    assert "{{brace}}" in formatted_str

@@ -188,7 +188,7 @@ class TestRegistryMixin:
     def test_register_decorator_non_string_sequence(self) -> None:
         """Verify registry decorator rejects non-string sequence items."""
         err_msg = "Registry keys must explicitly be strings"
-        with pytest.raises(ValueError, match=err_msg):
+        with pytest.raises(TypeError, match=err_msg):
             ConcreteIntegrationRegistry.register_decorator(
                 DummyService,
                 name=["valid", 456],  # type: ignore
@@ -283,6 +283,58 @@ class MixinDynamicService(DummyService):
 
         with pytest.raises(ValueError, match="Auto-population rejected"):
             ConcreteIntegrationRegistry.auto_populate_registry()
+
+    @pytest.mark.regression
+    def test_get_registered_object_with_auto_discovery(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verify that get_registered_object triggers auto-population when enabled."""
+        package_dir = tmp_path / "temp_discovery_get_pkg"
+        package_dir.mkdir()
+        (package_dir / "__init__.py").write_text("", encoding="utf-8")
+
+        submodule_file = package_dir / "dynamic_get_sub.py"
+        submodule_content = """from __future__ import annotations
+from tests.python.integration.test_registry import (
+    ConcreteIntegrationRegistry,
+    DummyService,
+)
+
+@ConcreteIntegrationRegistry.register("get_dynamic")
+class GetDynamicService(DummyService):
+    def __init__(self) -> None:
+        super().__init__("get_dynamic", 888)
+"""
+        submodule_file.write_text(submodule_content, encoding="utf-8")
+
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        monkeypatch.setattr(
+            ConcreteIntegrationRegistry, "registry_auto_discovery", True
+        )
+        monkeypatch.setattr(
+            ConcreteIntegrationRegistry, "auto_package", "temp_discovery_get_pkg"
+        )
+
+        ConcreteIntegrationRegistry.clear_registry()
+        assert not ConcreteIntegrationRegistry.registry_populated
+
+        obj = ConcreteIntegrationRegistry.get_registered_object("get_dynamic")
+        assert obj is not None
+        assert getattr(obj, "__name__", "") == "GetDynamicService"
+        assert ConcreteIntegrationRegistry.registry_populated is True
+
+        sys.modules.pop("temp_discovery_get_pkg", None)
+        sys.modules.pop("temp_discovery_get_pkg.dynamic_get_sub", None)
+
+    @pytest.mark.sanity
+    def test_is_registered_case_insensitive(self) -> None:
+        """Verify presence of an identifier in the registry case-insensitively."""
+        ConcreteIntegrationRegistry.register_decorator(DummyService, name="TestService")
+        assert ConcreteIntegrationRegistry.is_registered("TestService")
+        assert ConcreteIntegrationRegistry.is_registered("testservice")
+        assert ConcreteIntegrationRegistry.is_registered("TESTSERVICE")
+        assert not ConcreteIntegrationRegistry.is_registered("NonExistentService")
 
 
 class TestPydanticClassRegistryMixin:

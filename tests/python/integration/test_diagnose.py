@@ -64,6 +64,48 @@ class UnregisteredIntegrationChild(BaseIntegrationModel):
     url: str
 
 
+@pytest.fixture(autouse=True)
+def clean_registry_mixin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Generator[None, None, None]:
+    """Ensure BaseIntegrationModel is clean and correctly registered
+    across all tests.
+    """
+    BaseIntegrationModel.clear_registry()
+    BaseIntegrationModel.register_decorator(TextIntegrationModel, name="text")
+    BaseIntegrationModel.register_decorator(ImageIntegrationModel, name="image")
+    BaseIntegrationModel.register_decorator(
+        UnregisteredIntegrationChild,
+        name="unregistered",
+    )
+
+    original_get_subclasses = disdantic.diagnose._get_all_subclasses
+
+    def safe_get_subclasses(cls: type) -> set[type]:
+        subclasses = original_get_subclasses(cls)
+        return {
+            sub
+            for sub in subclasses
+            if sub.__name__
+            in (
+                "BaseIntegrationModel",
+                "ConcreteIntegrationRegistry",
+                "TextIntegrationModel",
+                "ImageIntegrationModel",
+                "UnregisteredIntegrationChild",
+                "RegistryMixin",
+                "PydanticClassRegistryMixin",
+            )
+        }
+
+    monkeypatch.setattr(disdantic.diagnose, "_get_all_subclasses", safe_get_subclasses)
+
+    yield
+    BaseIntegrationModel.clear_registry()
+    BaseIntegrationModel.register_decorator(TextIntegrationModel, name="text")
+    BaseIntegrationModel.register_decorator(ImageIntegrationModel, name="image")
+
+
 class TestCLIEntrypoint:
     """Integration test suite for the 'diagnose' CLI subcommand."""
 
@@ -146,21 +188,6 @@ class TestVerifyRegistries:
         reset_settings()
         yield
         reset_settings()
-
-    @pytest.fixture(autouse=True)
-    def clean_registry_mixin(self) -> Generator[None, None, None]:
-        """Ensure BaseIntegrationModel is clean and correctly registered."""
-        BaseIntegrationModel.clear_registry()
-        BaseIntegrationModel.register_decorator(TextIntegrationModel, name="text")
-        BaseIntegrationModel.register_decorator(ImageIntegrationModel, name="image")
-        BaseIntegrationModel.register_decorator(
-            UnregisteredIntegrationChild,
-            name="unregistered",
-        )
-        yield
-        BaseIntegrationModel.clear_registry()
-        BaseIntegrationModel.register_decorator(TextIntegrationModel, name="text")
-        BaseIntegrationModel.register_decorator(ImageIntegrationModel, name="image")
 
     @pytest.mark.sanity
     @pytest.mark.parametrize(
@@ -408,6 +435,212 @@ class TestVerifyRegistries:
 
         report = verify_registries()
         assert report.is_healthy is False
+
+    @pytest.mark.sanity
+    def test_resolve_packages_auto_package_list(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verify that auto_package declared as a list is correctly
+        resolved and scanned.
+        """
+
+        class ListPackageRegistry(RegistryMixin[Any]):
+            auto_package = ["package_one", "package_two"]
+
+        monkeypatch.setattr(
+            disdantic.diagnose,
+            "_get_all_subclasses",
+            lambda class_type: {ListPackageRegistry},
+        )
+
+        settings = get_settings()
+        settings.auto_packages = ["package_three"]
+
+        imported_packages: list[str] = []
+
+        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            imported_packages.append(name)
+            mock_pkg = mock.Mock()
+            if hasattr(mock_pkg, "__path__"):
+                delattr(mock_pkg, "__path__")
+            return mock_pkg
+
+        monkeypatch.setattr(importlib, "import_module", mock_import)
+
+        report = verify_registries()
+        assert report.is_healthy is True
+        assert "package_one" in report.scanned_packages
+        assert "package_two" in report.scanned_packages
+        assert "package_three" in report.scanned_packages
+        assert len(report.scanned_packages) == 3
+
+    @pytest.mark.sanity
+    def test_resolve_ignore_set_subclass(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Verify that auto_ignore_modules on subclass registries
+        are correctly resolved.
+        """
+
+        class IgnoredModulesRegistry(RegistryMixin[Any]):
+            auto_ignore_modules = {"test_pkg.ignored_subclass_module"}
+
+        monkeypatch.setattr(
+            disdantic.diagnose,
+            "_get_all_subclasses",
+            lambda class_type: {IgnoredModulesRegistry},
+        )
+
+        settings = get_settings()
+        settings.auto_packages = ["test_pkg"]
+        settings.auto_ignore_modules = ["test_pkg.settings_ignored_module"]
+
+        mock_pkg = mock.Mock()
+        mock_pkg.__path__ = ["/mock/path"]
+        mock_pkg.__name__ = "test_pkg"
+
+        imported_modules: list[str] = []
+
+        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "test_pkg":
+                return mock_pkg
+            imported_modules.append(name)
+            return mock.Mock()
+
+        def mock_walk(
+            path: Any, prefix: str, onerror: Any = None
+        ) -> Generator[tuple[Any, str, bool], None, None]:
+            yield None, "test_pkg.settings_ignored_module", False
+            yield None, "test_pkg.ignored_subclass_module", False
+            yield None, "test_pkg.normal_module", False
+
+        monkeypatch.setattr(importlib, "import_module", mock_import)
+        monkeypatch.setattr(pkgutil, "walk_packages", mock_walk)
+
+        report = verify_registries()
+        assert report.is_healthy is True
+        assert "test_pkg.normal_module" in imported_modules
+        assert "test_pkg.settings_ignored_module" not in imported_modules
+        assert "test_pkg.ignored_subclass_module" not in imported_modules
+
+    @pytest.mark.regression
+    def test_scan_packages_non_package_module(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verify that scanning a module lacking __path__ is bypassed correctly."""
+        settings = get_settings()
+        settings.auto_packages = ["non_pkg_module"]
+
+        mock_module = mock.Mock()
+        if hasattr(mock_module, "__path__"):
+            delattr(mock_module, "__path__")
+        mock_module.__name__ = "non_pkg_module"
+
+        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "non_pkg_module":
+                return mock_module
+            raise ImportError(f"Unexpected import request for {name}")
+
+        monkeypatch.setattr(importlib, "import_module", mock_import)
+
+        report = verify_registries()
+        assert report.is_healthy is True
+        assert len(report.import_errors) == 0
+
+    @pytest.mark.regression
+    def test_scan_packages_walk_onerror_callback(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verify that onerror callback in pkgutil.walk_packages is
+        triggered and handled.
+        """
+        settings = get_settings()
+        settings.auto_packages = ["trigger_onerror_pkg"]
+
+        mock_pkg = mock.Mock()
+        mock_pkg.__path__ = ["/mock/path"]
+        mock_pkg.__name__ = "trigger_onerror_pkg"
+
+        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "trigger_onerror_pkg":
+                return mock_pkg
+            return mock.Mock()
+
+        def mock_walk(
+            path: Any, prefix: str, onerror: Any = None
+        ) -> Generator[tuple[Any, str, bool], None, None]:
+            if onerror is not None:
+                onerror("simulated_submodule_name")
+            yield None, "trigger_onerror_pkg.normal_mod", False
+
+        monkeypatch.setattr(importlib, "import_module", mock_import)
+        monkeypatch.setattr(pkgutil, "walk_packages", mock_walk)
+
+        report = verify_registries()
+        assert report.is_healthy is True
+        assert len(report.import_errors) == 0
+
+    @pytest.mark.regression
+    def test_scan_packages_skip_subpackages_and_ignored(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verify that subpackages (is_package=True) and ignored
+        modules are not imported.
+        """
+        settings = get_settings()
+        settings.auto_packages = ["mixed_pkg"]
+        settings.auto_ignore_modules = ["mixed_pkg.ignored_mod"]
+
+        mock_pkg = mock.Mock()
+        mock_pkg.__path__ = ["/mock/path"]
+        mock_pkg.__name__ = "mixed_pkg"
+
+        imported_modules: list[str] = []
+
+        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "mixed_pkg":
+                return mock_pkg
+            imported_modules.append(name)
+            return mock.Mock()
+
+        def mock_walk(
+            path: Any, prefix: str, onerror: Any = None
+        ) -> Generator[tuple[Any, str, bool], None, None]:
+            yield None, "mixed_pkg.subpkg", True
+            yield None, "mixed_pkg.ignored_mod", False
+            yield None, "mixed_pkg.normal_mod", False
+
+        monkeypatch.setattr(importlib, "import_module", mock_import)
+        monkeypatch.setattr(pkgutil, "walk_packages", mock_walk)
+
+        report = verify_registries()
+        assert report.is_healthy is True
+        assert "mixed_pkg.normal_mod" in imported_modules
+        assert "mixed_pkg.subpkg" not in imported_modules
+        assert "mixed_pkg.ignored_mod" not in imported_modules
+
+    @pytest.mark.regression
+    def test_diagnose_registry_orphan_mixin_skipped(self) -> None:
+        """Verify that subclasses named RegistryMixin or
+        PydanticClassRegistryMixin are skipped from orphans.
+        """
+
+        class RegistryMixin(BaseIntegrationModel):
+            msg_type: Literal["dummy_mixin"] = "dummy_mixin"
+
+        report = verify_registries()
+        assert report.is_healthy is True
+        reg_diagnostics = next(
+            (
+                registry
+                for registry in report.registries
+                if registry.registry_name == "BaseIntegrationModel"
+            ),
+            None,
+        )
+        assert reg_diagnostics is not None
+        assert not any(
+            "dummy_mixin" in orphan or "RegistryMixin" in orphan
+            for orphan in reg_diagnostics.orphans
+        )
 
 
 class TestRegistryModelInfo:
