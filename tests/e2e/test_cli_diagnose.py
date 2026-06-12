@@ -32,7 +32,7 @@ from disdantic.settings import Settings, get_settings, reset_settings
 from tests.conftest import TemporaryPackageBuilder
 
 
-class E2EDiagnosticsRegistry(PydanticClassRegistryMixin, AutoImporterMixin):
+class E2EDiagnosticsRegistry(PydanticClassRegistryMixin):
     """Registry subclass for E2E diagnostics testing."""
 
     schema_discriminator = "model_type"

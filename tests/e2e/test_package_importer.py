@@ -29,14 +29,14 @@ from disdantic.settings import reset_settings
 from tests.conftest import TemporaryPackageBuilder
 
 
-class E2ETestRegistryOne(PydanticClassRegistryMixin, AutoImporterMixin):
+class E2ETestRegistryOne(PydanticClassRegistryMixin):
     """Registry subclass one for E2E testing."""
 
     schema_discriminator: ClassVar[str] = "msg_type"
     msg_type: str
 
 
-class E2ETestRegistryTwo(PydanticClassRegistryMixin, AutoImporterMixin):
+class E2ETestRegistryTwo(PydanticClassRegistryMixin):
     """Registry subclass two for E2E testing."""
 
     schema_discriminator: ClassVar[str] = "msg_type"

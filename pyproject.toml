@@ -19,7 +19,7 @@ build-backend = "hatchling.build"
 [project]
 name = "disdantic"
 dynamic = ["version"]
-description = "A lightweight collection of utilities and mixins for Pydantic. disdantic simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate."
+description = "The missing polymorphic engine for Pydantic. disdantic simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }

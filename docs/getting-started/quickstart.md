@@ -1,59 +1,125 @@
 # Quick Start
 
-This guide gets you from a fresh clone to a running local development environment in under 5 minutes.
+This guide helps you write your first code using `disdantic` in under 5 minutes.
 
-## Step 1 — Clone the Repository
+## Prerequisites
 
-Clone the `disdantic` repository to your local machine:
-
-```bash
-git clone https://github.com/markurtz/disdantic.git
-cd disdantic
-```
-
-## Step 2 — Set Up and Sync the Environment
-
-We use **[uv](https://docs.astral.sh/uv/)** to manage Python packages and environments, and **[Hatch](https://hatch.pypa.io/)** to orchestrate development tasks.
-
-Sync the Python environment to install all required dependencies and tools:
+Before starting, ensure you have installed `disdantic`:
 
 ```bash
-uv sync --all-groups --all-extras
+pip install disdantic
 ```
 
-This will create a local `.venv` directory for IDE code resolution and install the development tools.
+## Step 1 — Define the polymorphic base registry class
 
-## Step 3 — Run Tests and Quality Checks
+Extend `PydanticClassRegistryMixin` to create a registry namespace. This mixin establishes the registry base and sets the serialized tag field name using `schema_discriminator`.
 
-Verify that your local environment is configured correctly by running the pre-configured quality checks and tests:
+```python
+from disdantic import PydanticClassRegistryMixin
 
-```bash
-# Run linting and type checking
-hatch run python:lint
-hatch run python:types
-
-# Run the python unit test suite
-hatch run python:tests-unit
+# Establish the polymorphic base registry
+class Message(PydanticClassRegistryMixin):
+    schema_discriminator = "msg_type"  # Field name in JSON payload
+    msg_type: str
 ```
 
-If all tests pass, your local environment is successfully set up and ready!
+## Step 2 — Register subclass implementations
 
-## Step 4 — Run an Example
+Use the `@Message.register` decorator to dynamically register subclasses. If no key is provided, the registry defaults to the subclass name.
 
-You can explore and run a basic example to see how the project functions. Run the template example:
+```python
+from typing import Literal
+from disdantic import PydanticClassRegistryMixin
 
-```bash
-python examples/example_template/main.py
+class Message(PydanticClassRegistryMixin):
+    schema_discriminator = "msg_type"
+    msg_type: str
+
+@Message.register("text")
+class TextMessage(Message):
+    msg_type: Literal["text"] = "text"
+    content: str
+
+@Message.register("image")
+class ImageMessage(Message):
+    msg_type: Literal["image"] = "image"
+    url: str
+    caption: str | None = None
 ```
 
-> [!TIP]
-> See the [Developer Guide](../community/developing.md) for more details on local development commands and advanced options.
+## Step 3 — Define parent models and validate payloads
 
-## Step 5 — Explore Further
+Define Pydantic parent models that reference the registry base class as a field. `disdantic` automatically detects subclass additions and rebuilds the parent validation schemas. Finally, validate the polymorphic JSON payload using the parent model.
 
-Now that your project is ready, explore what `disdantic` provides:
+```python
+from typing import Literal
+from disdantic import PydanticClassRegistryMixin
+from pydantic import BaseModel
 
-- **[Guides](../guides/index.md)** — Task-specific deep dives including CI/CD workflows.
-- **[Reference](../reference/index.md)** — Full configuration reference.
+class Message(PydanticClassRegistryMixin):
+    schema_discriminator = "msg_type"
+    msg_type: str
 
-**Next:** [Guides →](../guides/index.md)
+@Message.register("text")
+class TextMessage(Message):
+    msg_type: Literal["text"] = "text"
+    content: str
+
+@Message.register("image")
+class ImageMessage(Message):
+    msg_type: Literal["image"] = "image"
+    url: str
+    caption: str | None = None
+
+# 3. Parents automatically rebuild to accommodate new subtypes
+class ChatRoom(BaseModel):
+    room_name: str
+    messages: list[Message]  # Polymorphic union field
+
+# 4. Incoming payloads validate dynamically to correct subclass types
+payload = {
+    "room_name": "General Chat",
+    "messages": [
+        {"msg_type": "text", "content": "Hello world!"},
+        {"msg_type": "image", "url": "https://example.com/logo.png", "caption": "Logo"}
+    ]
+}
+
+room = ChatRoom.model_validate(payload)
+assert isinstance(room.messages[0], TextMessage)
+assert isinstance(room.messages[1], ImageMessage)
+
+# 5. Full marshalling flow (serialization and deserialization)
+room_data = room.model_dump()
+# msg_type is automatically included in the serialized output!
+assert room_data["messages"][0]["msg_type"] == "text"
+assert room_data["messages"][1]["msg_type"] == "image"
+
+restored_room = ChatRoom.model_validate(room_data)
+assert isinstance(restored_room.messages[0], TextMessage)
+assert isinstance(restored_room.messages[1], ImageMessage)
+```
+
+______________________________________________________________________
+
+## Local Development & Contributing
+
+If you want to contribute to the `disdantic` codebase, run tests, or build the documentation locally:
+
+1. **Clone the Repository:**
+   ```bash
+   git clone https://github.com/markurtz/disdantic.git
+   cd disdantic
+   ```
+1. **Setup the Environment:**
+   We use **[uv](https://docs.astral.sh/uv/)** to manage Python packages and **[Hatch](https://hatch.pypa.io/)** for workflows:
+   ```bash
+   uv sync --all-groups --all-extras
+   ```
+1. **Run Quality Checks and Tests:**
+   ```bash
+   hatch run python:lint
+   hatch run python:tests-unit
+   ```
+
+For detailed contributor guidelines, see the [Developer Setup Guide](../community/developing.md).

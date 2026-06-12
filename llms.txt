@@ -1,6 +1,6 @@
 # disdantic
 
-> A lightweight collection of utilities and mixins for Pydantic.
+> The missing polymorphic engine for Pydantic.
 
 `disdantic` simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate.
 For complete, merged context containing the full codebase and all guides, see [llms-full.txt](llms-full.txt).
@@ -24,6 +24,16 @@ For complete, merged context containing the full codebase and all guides, see [l
 - [src/disdantic/settings.py](src/disdantic/settings.py): Pydantic settings configuration.
 - [src/disdantic/logging.py](src/disdantic/logging.py): Loguru logging setup and custom handlers.
 - [src/disdantic/compat.py](src/disdantic/compat.py): Compatibility layer.
+- [src/disdantic/registry.py](src/disdantic/registry.py): Core subclass registry management.
+- [src/disdantic/model.py](src/disdantic/model.py): Reloadable BaseModel for topological reloading.
+- [src/disdantic/introspection.py](src/disdantic/introspection.py): InfoMixin runtime self-introspection helper.
+- [src/disdantic/loading.py](src/disdantic/loading.py): Lazy loader and proxy descriptors.
+- [src/disdantic/exceptions.py](src/disdantic/exceptions.py): Specialized exception classifications.
+- [src/disdantic/schema.py](src/disdantic/schema.py): Consolidated JSON/OpenAPI schema exporters.
+- [src/disdantic/importer.py](src/disdantic/importer.py): AutoImporterMixin package auto-discovery scanner.
+- [src/disdantic/singleton.py](src/disdantic/singleton.py): SingletonMeta thread-safe metaclass.
+- [src/disdantic/diagnose.py](src/disdantic/diagnose.py): Programmatic verification diagnostic checks.
+- [src/disdantic/version.py](src/disdantic/version.py): Version identifiers.
 
 ### Testing Suite Tiers
 - [tests/python/unit/](tests/python/unit/): Python unit test suite.

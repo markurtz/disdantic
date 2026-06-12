@@ -75,8 +75,6 @@ When creating new tests, ensure they are placed in the appropriate tier director
 ```python
 """Unit tests for my_module."""
 
-from __future__ import annotations
-
 import pytest
 
 from disdantic import my_module

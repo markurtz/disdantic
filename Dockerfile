@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # hadolint ignore=DL3013
 RUN pip install --no-cache-dir uv hatch "gitversioned>=0.3.0"
 
-ARG VERSION=0.1.0.dev20260612+9a81e75
+ARG VERSION=0.1.0.dev20260612+da90149
 
 # Copy package manifests
 COPY pyproject.toml README.md LICENSE NOTICE Dockerfile ./
@@ -56,7 +56,7 @@ FROM python:3.10-slim-bookworm
 # Define standard OCI build parameters
 ARG BUILD_DATE
 ARG GIT_SHA
-ARG VERSION=0.1.0.dev20260612+9a81e75
+ARG VERSION=0.1.0.dev20260612+da90149
 
 # OCI Metadata Labels
 LABEL org.opencontainers.image.created=$BUILD_DATE \
@@ -69,7 +69,7 @@ LABEL org.opencontainers.image.created=$BUILD_DATE \
       org.opencontainers.image.vendor="markurtz" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.title="disdantic" \
-      org.opencontainers.image.description="A lightweight collection of utilities and mixins for Pydantic"
+      org.opencontainers.image.description="The missing polymorphic engine for Pydantic"
 
 # Define standard production runtime environment variables
 ENV APP_ENV=production \

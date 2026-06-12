@@ -475,7 +475,7 @@ class TestCLIEntrypoint:
         runner = CliRunner()
         result = runner.invoke(app, [help_flag])
         assert result.exit_code == 0
-        assert "Disdantic: A lightweight collection of utilities" in result.stdout
+        assert "Disdantic: The missing polymorphic engine for Pydantic" in result.stdout
 
     @pytest.mark.sanity
     def test_cli_diagnose_help(self) -> None:

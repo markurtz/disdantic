@@ -15,7 +15,7 @@
 [project]
 site_name = "disdantic"
 site_url = "https://markurtz.github.io/disdantic/"
-site_description = "A lightweight collection of utilities and mixins for Pydantic. disdantic simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate."
+site_description = "The missing polymorphic engine for Pydantic. disdantic simplifies registries and discriminated unions with automatic model discovery and auto-importing, helping you manage polymorphic data shapes with less boilerplate."
 site_author = "markurtz"
 repo_url = "https://github.com/markurtz/disdantic"
 repo_name = "markurtz/disdantic"
@@ -28,7 +28,7 @@ default = "latest"
 [project.theme]
 variant = "modern"
 features = ["navigation.indexes"]
-logo = "assets/branding/logo-magenta.svg"
+logo = "assets/branding/icon-magenta.svg"
 favicon = "assets/branding/icon-magenta.png"
 
 [[project.theme.palette]]

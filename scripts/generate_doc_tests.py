@@ -74,6 +74,7 @@ def _find_markdown_files(targets: list[str]) -> list[Path]:
         for path in markdown_files
         if ".tests" not in path.parts
         and not ("docs" in path.parts and "reference" in path.parts)
+        and not (len(path.parts) == 1 and path.name != "README.md")
     )
 
 
@@ -103,6 +104,73 @@ def run_generate_doc_tests(
         shutil.rmtree(_OUT_DIR)
     _OUT_DIR.mkdir(parents=True, exist_ok=True)
 
+    # Write conftest.py to dynamically configure the mock package structure
+    conftest_content = """# Copyright 2026 markurtz
+# Auto-generated conftest for doc tests setup
+import sys
+import tempfile
+import shutil
+from pathlib import Path
+import pytest
+
+_TEMP_DIR = None
+_ADDED_PATH = None
+
+@pytest.fixture(autouse=True)
+def clear_all_registries():
+    # Reset settings to default before and after each test
+    from disdantic.settings import reset_settings
+    reset_settings()
+    yield
+    reset_settings()
+    # Clear all active registries to prevent cross-test collisions
+    from disdantic.registry import RegistryMixin
+    def get_all_subclasses(cls):
+        subs = set(cls.__subclasses__())
+        return subs.union(*(get_all_subclasses(s) for s in subs))
+    for sub in get_all_subclasses(RegistryMixin):
+        if hasattr(sub, "clear_registry"):
+            sub.clear_registry()
+
+def pytest_sessionstart(session):
+    global _TEMP_DIR, _ADDED_PATH
+    _TEMP_DIR = tempfile.mkdtemp()
+    myapp_dir = Path(_TEMP_DIR) / "myapp"
+    models_dir = myapp_dir / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+
+    (myapp_dir / "__init__.py").write_text("# myapp init")
+    (models_dir / "__init__.py").write_text('''# myapp.models init
+from disdantic import PydanticClassRegistryMixin, InfoMixin
+
+class BaseMessage(PydanticClassRegistryMixin, InfoMixin):
+    schema_discriminator = "msg_type"
+''')
+    (models_dir / "experimental.py").write_text("# experimental models")
+    (models_dir / "details.py").write_text('''# details models
+from myapp.models import BaseMessage
+
+@BaseMessage.register("text")
+class TextMessage(BaseMessage):
+    content: str
+''')
+    (models_dir / "temp.py").write_text("# temp models")
+
+    sys.path.insert(0, _TEMP_DIR)
+    _ADDED_PATH = _TEMP_DIR
+
+def pytest_sessionfinish(session, exitstatus):
+    global _TEMP_DIR, _ADDED_PATH
+    if _ADDED_PATH and _ADDED_PATH in sys.path:
+        sys.path.remove(_ADDED_PATH)
+    for key in list(sys.modules.keys()):
+        if key == "myapp" or key.startswith("myapp."):
+            sys.modules.pop(key, None)
+    if _TEMP_DIR:
+        shutil.rmtree(_TEMP_DIR, ignore_errors=True)
+"""
+    (_OUT_DIR / "conftest.py").write_text(conftest_content, encoding="utf-8")
+
     targets_and_options = targets_and_options or []
     targets = _resolve_targets(targets_and_options)
     markdown_files = _find_markdown_files(targets)
@@ -130,6 +198,10 @@ def run_generate_doc_tests(
                 + extra_options,
                 check=True,
             )
+            if out_file.exists():
+                code = out_file.read_text(encoding="utf-8")
+                new_code = f"from __future__ import annotations\n{code}"
+                out_file.write_text(new_code, encoding="utf-8")
         except (subprocess.CalledProcessError, FileNotFoundError) as error:
             logger.error("Error generating tests for {}: {}", markdown_file, error)
             failed = True

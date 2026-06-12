@@ -25,8 +25,7 @@ The Reference section contains the complete technical documentation for `disdant
 `disdantic` can also be used programmatically in your own Python scripts:
 
 ```python
-from disdantic import Settings, configure_logger, logger
-from disdantic.logging import LoggingSettings
+from disdantic import LoggingSettings, Settings, configure_logger, logger
 
 # Initialize the global logger
 configure_logger(LoggingSettings(enabled=True, level="INFO"))
