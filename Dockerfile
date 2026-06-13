@@ -17,7 +17,7 @@ ARG VERSION_TYPE=auto
 # ==============================================================================
 # Stage 1: Build Stage (Python)
 # ==============================================================================
-FROM python:3.10-slim-bookworm AS builder
+FROM python:3.14-slim-bookworm AS builder
 
 ARG VERSION_TYPE
 
@@ -58,7 +58,7 @@ RUN hatch build
 # =================================================================-------------
 # Stage 2: Runtime Stage (Minimal & Secure)
 # =================================================================-------------
-FROM python:3.10-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 # Define standard OCI build parameters
 ARG BUILD_DATE
