@@ -63,24 +63,18 @@ runs:
       uses: ./.github/actions/utility/setup-python
       with:
         python-version: ${{ inputs.python-version }}
-    - name: Resolve and set version
-      id: version-resolver
+    - name: Set GitVersioned environment variables
       if: steps.check.outputs.run == 'true'
       shell: bash
-      env:
-        BUILD_TYPE: ${{ inputs.build-type }}
       run: |-
-        hatch run gitversioned write --version-type "$BUILD_TYPE"
-        VERSION=$(hatch project metadata | python3 -c "import json, sys; print(json.load(sys.stdin)['version'])")
-        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        echo "GITVERSIONED__VERSION_TYPE=${{ inputs.build-type }}" >> "$GITHUB_ENV"
     - name: Build OCI Image
       if: steps.check.outputs.run == 'true'
       shell: bash
       env:
-        BUILD_VERSION: ${{ steps.version-resolver.outputs.version }}
         GIT_SHA: ${{ github.sha }}
       run: |
-        hatch run oci:build --build-arg VERSION="$BUILD_VERSION" --build-arg GIT_SHA="$GIT_SHA" --build-arg BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+        hatch run oci:build --build-arg GIT_SHA="$GIT_SHA" --build-arg BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
     - name: Save OCI Image to Tarball
       if: steps.check.outputs.run == 'true'
       shell: bash

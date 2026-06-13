@@ -48,6 +48,7 @@ permissions:
   security-events: write
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  GITVERSIONED__VERSION_TYPE: "dev"
 jobs:
 
   # ── Stage 0: Pipeline Initialization ───────────────────────────────────────

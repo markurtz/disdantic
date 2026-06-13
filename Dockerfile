@@ -12,10 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# =================================================================-------------
+ARG VERSION_TYPE=auto
+
+# ==============================================================================
 # Stage 1: Build Stage (Python)
-# =================================================================-------------
+# ==============================================================================
 FROM python:3.10-slim-bookworm AS builder
+
+ARG VERSION_TYPE
+
+ENV GITVERSIONED__VERSION_TYPE=$VERSION_TYPE
 
 # Set working directory
 WORKDIR /app
@@ -31,17 +37,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Python packaging tools
 # hadolint ignore=DL3013
-RUN pip install --no-cache-dir uv hatch "gitversioned>=0.3.0"
-
-ARG VERSION=0.1.0
+RUN pip install --no-cache-dir uv hatch
 
 # Copy package manifests
 COPY pyproject.toml README.md LICENSE NOTICE Dockerfile ./
 COPY scripts/ ./scripts/
 
+# Copy git repository metadata for version calculation
+COPY .git/ ./.git/
+COPY .git_archival.txt .gitattributes ./
+
 # Copy source tree
 COPY src/ ./src/
-
 
 # Build Python wheel distributions
 # hadolint ignore=DL3059
@@ -56,7 +63,6 @@ FROM python:3.10-slim-bookworm
 # Define standard OCI build parameters
 ARG BUILD_DATE
 ARG GIT_SHA
-ARG VERSION=0.1.0
 
 # OCI Metadata Labels
 LABEL org.opencontainers.image.created=$BUILD_DATE \
@@ -64,7 +70,6 @@ LABEL org.opencontainers.image.created=$BUILD_DATE \
       org.opencontainers.image.url="https://github.com/markurtz/disdantic" \
       org.opencontainers.image.documentation="https://markurtz.github.io/disdantic/" \
       org.opencontainers.image.source="https://github.com/markurtz/disdantic" \
-      org.opencontainers.image.version=$VERSION \
       org.opencontainers.image.revision=$GIT_SHA \
       org.opencontainers.image.vendor="markurtz" \
       org.opencontainers.image.licenses="Apache-2.0" \

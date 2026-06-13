@@ -113,10 +113,6 @@ Documentation = "https://markurtz.github.io/disdantic/"
 [tool.hatch.version]
 source = "gitversioned"
 
-[tool.gitversioned.overrides.docker]
-output = "Dockerfile"
-output_strategies = { type = "regex", pattern = '''(?m)^(\s*ARG\s+VERSION\s*=\s*)(?P<version>[^\s\n]+)''' }
-
 
 # ==============================================================================
 # Hatch Environment Configurations
@@ -351,7 +347,7 @@ tests-e2e-cov = [
   "echo '[INFO] No coverage analysis is applicable for E2E tests in the OCI environment'",
 ]
 docs = "echo '[INFO] No documentation is defined for the OCI environment' {args}"
-build = "docker build -t {env:OCI_IMAGE} . {args}"
+build = "docker build --build-arg VERSION_TYPE={env:GITVERSIONED__VERSION_TYPE:auto} -t {env:OCI_IMAGE} . {args}"
 
 # ==============================================================================
 # Project Environment
